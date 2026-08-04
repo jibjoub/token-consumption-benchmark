@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "CASTImaging": {
+      "type": "http",
+      "url": "http://nasa-3-dock.corp.castsoftware.com:8090/mcp",
+      "headers": {
+        "x-api-key": "UbL2fPg1.VUYR9P4kDME5Ry7ROVdmLlsSK4Z9NWix"
+      }
+    }
+  }
+}

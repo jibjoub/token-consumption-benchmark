@@ -1,0 +1,6 @@
+[
+  {
+    "id": "pages-directly-related-to-PrivateMessage-table",
+    "prompt": "I want to modify the PrivateMessage table. Count and list all the aspx pages that can be directly impacted by this change."
+  }
+]
