@@ -1,6 +1,44 @@
 [
   {
     "id": "pages-directly-related-to-PrivateMessage-table",
-    "prompt": "I want to modify the PrivateMessage table. Count and list all the aspx pages that can be directly impacted by this change."
+    "prompt": "I want to modify the PrivateMessage table. Count and list all the aspx pages that can be directly impacted by this change.",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "Exact number of distinct .aspx pages found."
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The distinct .aspx page paths counted, by exact relative path from the repo root (e.g. 'admin/managermain.aspx')."
+        },
+        "justification": {
+          "type": "string",
+          "description": "Which stored procedures, Blogic dispatcher members, and call chains were inspected to arrive at this count."
+        }
+      },
+      "required": [
+        "count",
+        "pages",
+        "justification"
+      ]
+    },
+    "expected": {
+      "count": 8,
+      "pages": [
+        "pmview.aspx",
+        "myaccount.aspx",
+        "pmread.aspx",
+        "pmsentread.aspx",
+        "pmsend.aspx",
+        "AjaxRequest/AjaxRequest.aspx",
+        "admin/managermain.aspx",
+        "admin/membershipmanagers.aspx"
+      ]
+    }
   }
 ]

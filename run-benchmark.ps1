@@ -118,6 +118,52 @@ Output
   without waiting on whether it happens to reach for it naturally. Keep
   both rather than replacing one with the other -- they're different
   questions and you already have real data showing they can diverge.
+
+Structured output (--json-schema)
+  Any question in -QuestionsFile can carry an optional "json_schema" field
+  (a real JSON Schema object, not a string). When present, it's passed
+  through to `claude -p` via --json-schema, which forces the run to end
+  with a call to a synthetic StructuredOutput tool instead of free text --
+  confirmed by hand: the stream-json "result" event then carries both the
+  usual "result" string AND a "structured_output" object that already
+  validates against the schema. That object is logged verbatim below
+  (record.structured_output), so a question whose answer is a set (which
+  tables, which pages) can be scored by plain set arithmetic against
+  bench-questions.json's "expected" field -- no LLM-judge extraction step
+  needed for that question. Questions with no "json_schema" behave exactly
+  as before: free text in "result", "structured_output" stays null.
+
+  This is not free. Confirmed by hand: forcing structured output adds a
+  turn (num_turns goes up by roughly one) and a small extra cost for the
+  enforcement round-trip, and it can change *what* Claude does along the
+  way -- e.g. suppress prose reasoning that might otherwise have surfaced
+  a hallucinated table name in a readable way. Treat "used_json_schema"
+  as a cohort split, the same way "condition" already is: don't average a
+  schema-on row against a schema-off row for the same question_id and
+  call it one distribution. Old rows from before this field existed won't
+  have it at all, which is a third cohort, not a missing value -- don't
+  silently coerce it to false.
+
+  A JSON Schema is nothing but colons, braces, and double quotes, and
+  getting a value like that intact through PowerShell to a native command
+  is the actual hard part here -- not the CLI flag itself. On at least one
+  real machine, "claude" resolves to claude.ps1 (a standard npm install:
+  claude.ps1 / claude.cmd / claude next to each other, not a standalone
+  .exe), and that script does its own internal "& node ... $args" hop to
+  reach the real engine -- a hop this script has no way to see or control.
+  If --json-schema comes back with "not valid JSON" / a truncated schema
+  on your machine, that inner hop is almost certainly where it's
+  happening, and it's a known Windows PowerShell 5.1 weakness (fixed in
+  PowerShell 7.3's argument-passing rewrite) triggered specifically by an
+  argument full of embedded quotes -- not something fixable from out here
+  by changing how this script calls claude. Two real fixes, in order of
+  effort: (1) run this script with `pwsh` instead of `powershell` (7.3+ --
+  check with $PSVersionTable.PSVersion -- fixes the SAME internal hop
+  since claude.ps1 runs in whatever engine invoked it); (2) `claude
+  install` to switch from the npm shim to the native build, which removes
+  the extra hop entirely. Below, a version check warns once at runtime if
+  a schema-bearing question is about to run under < 7.3 so this isn't a
+  silent surprise.
 #>
 
 param(
@@ -127,13 +173,35 @@ param(
   [string]$McpConfigPath = (Join-Path $RepoPath "cast.json"),
   [string]$ResultsFile   = (Join-Path $PSScriptRoot "results.jsonl"),
   [int]$Runs = 5,
-  [ValidateSet("without","with","with-forced")]
   [string[]]$Conditions = @("without","with"),
   [string]$BaseAllowedTools = "Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)",
   [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Use them to answer this question rather than relying solely on reading the source code directly."
 )
 
 $ErrorActionPreference = "Stop"
+
+# Accepts either a real array (-Conditions without with-forced -- only binds
+# as multiple elements when this script is invoked through PowerShell's own
+# parser, e.g. typed directly at a prompt) or a single comma-joined string
+# (-Conditions without,with,with-forced). The comma form is what actually
+# arrives when this script is run via "pwsh -File run-benchmark.ps1 ...".
+# Confirmed by hand: -File hands arguments to the script as raw text,
+# bypassing the array-literal parsing that splits a comma-separated value
+# into multiple elements at an interactive prompt -- so
+# "without,with,with-forced" arrives as ONE array element containing all
+# three names glued together, not three elements. [ValidateSet] can't sit
+# on the parameter itself for this reason: it would reject that one
+# glued-together string before this code ever gets a chance to split it,
+# which is exactly the "does not belong to the set" error this replaces.
+# Splitting and validating by hand here works the same regardless of which
+# way the script was invoked.
+$Conditions = $Conditions | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+$allowedConditions = @("without", "with", "with-forced")
+foreach ($c in $Conditions) {
+  if ($allowedConditions -notcontains $c) {
+    throw "Invalid -Conditions value '$c'. Allowed values: $($allowedConditions -join ', ')"
+  }
+}
 
 # See the header note above: without this, CAST's tool definitions are
 # withheld until Claude proactively searches and finds them, so a "with"
@@ -146,6 +214,20 @@ if (-not (Test-Path $RepoPath))      { throw "RepoPath not found: $RepoPath" }
 if (-not (Test-Path $QuestionsFile)) { throw "QuestionsFile not found: $QuestionsFile" }
 
 $questions = Get-Content $QuestionsFile -Raw | ConvertFrom-Json
+
+# See the header note "Structured output" above: a schema-bearing question
+# is the one case that can hit the PowerShell-version-dependent quoting
+# weakness inside claude's own npm shim. Warn once, up front, rather than
+# let it surface as a cryptic mid-run "not valid JSON" error with no
+# obvious cause.
+$anySchemaQuestions = $questions | Where-Object { $_.PSObject.Properties.Match("json_schema").Count -gt 0 -and $_.json_schema }
+if ($anySchemaQuestions -and $PSVersionTable.PSVersion -lt [version]"7.3") {
+  Write-Host "WARNING: PowerShell $($PSVersionTable.PSVersion) detected, and at least one question uses json_schema." -ForegroundColor Yellow
+  Write-Host "         Versions below 7.3 are known to mangle arguments full of embedded quotes -- exactly what a" -ForegroundColor Yellow
+  Write-Host "         JSON Schema is -- when claude is installed via npm (claude.ps1 calling node internally)." -ForegroundColor Yellow
+  Write-Host "         If a schema question comes back with 'not valid JSON', re-run this script with 'pwsh' (7.3+)" -ForegroundColor Yellow
+  Write-Host "         instead of 'powershell', or run ``claude install`` to switch to the native build." -ForegroundColor Yellow
+}
 
 Push-Location $RepoPath
 try {
@@ -170,6 +252,17 @@ try {
         $promptText = "$($q.prompt)`n`n$ForceInstruction"
       }
 
+      # Optional per-question JSON Schema (see header note "Structured
+      # output" above). $q.json_schema, if present, is already a nested
+      # PSCustomObject courtesy of ConvertFrom-Json above -- flatten it back
+      # to a compact JSON string, since that's the shape --json-schema wants
+      # on the command line. Questions without this field pass $null
+      # straight through and nothing about the run changes.
+      $jsonSchemaArg = $null
+      if ($q.PSObject.Properties.Match("json_schema").Count -gt 0 -and $q.json_schema) {
+        $jsonSchemaArg = ($q.json_schema | ConvertTo-Json -Depth 20 -Compress)
+      }
+
       for ($i = 1; $i -le $Runs; $i++) {
         Write-Host "== $AppName | $($q.id) | $condition | run $i/$Runs ==" -ForegroundColor Cyan
 
@@ -180,6 +273,32 @@ try {
           "--allowedTools", $allowedTools
         ) + $mcpArgs
 
+        if ($jsonSchemaArg) {
+          $claudeArgs += @("--json-schema", $jsonSchemaArg)
+        }
+
+        # Back to the original, simple invocation. The custom-quoting /
+        # ProcessStartInfo detour tried here previously rested on an
+        # assumption that turned out wrong: it assumed "claude" is a
+        # standalone .exe, but on a real test machine it resolves to
+        # claude.ps1 (CommandType ExternalScript -- a standard npm global
+        # install: claude.ps1 / claude.cmd / claude side by side, not a
+        # single binary). Process.Start can't launch a .ps1 directly
+        # ("specified executable is not a valid application for this OS
+        # platform" -- confirmed by hand), so that approach cannot work
+        # regardless of how carefully the arguments were escaped.
+        #
+        # More importantly, that also means the ORIGINAL corruption was
+        # never happening at this boundary in the first place: "&
+        # claude @claudeArgs" invokes claude.ps1 as an in-process
+        # PowerShell script call (values bound directly as .NET objects,
+        # no OS command-line string involved), which is not where Windows'
+        # embedded-quote quirks apply. The actual native-command hop is
+        # ONE LEVEL INSIDE claude.ps1 itself (its own "& node ... $args"
+        # call to reach the real engine) -- code this script doesn't own
+        # and can't intercept. See the header note "Structured output" for
+        # what to do if a schema-bearing question hits that.
+        #
         # Splatting (@claudeArgs) hands each element to claude as its own
         # argument, so the prompt's spaces/punctuation don't need manual
         # quoting the way they would in cmd.exe.
@@ -191,12 +310,13 @@ try {
         $rawLines = & claude @claudeArgs
 
         $record = [ordered]@{
-          timestamp   = (Get-Date).ToString("o")
-          app         = $AppName
-          question_id = $q.id
-          condition   = $condition
-          run_index   = $i
-          correct     = $null   # fill in true/false by hand after reading 'result'
+          timestamp        = (Get-Date).ToString("o")
+          app              = $AppName
+          question_id      = $q.id
+          condition        = $condition
+          run_index        = $i
+          used_json_schema = [bool]$jsonSchemaArg
+          correct          = $null   # fill in true/false by hand after reading 'result'
         }
 
         $toolsUsed = New-Object System.Collections.Generic.List[string]
@@ -237,13 +357,49 @@ try {
           $record.cache_read_tokens     = $finalResult.usage.cache_read_input_tokens
           $record.session_id            = $finalResult.session_id
           $record.result                = $finalResult.result
+          # Present only on json_schema runs; validated against the
+          # question's schema already, so scoring can diff it against
+          # bench-questions.json's "expected" with plain set arithmetic
+          # instead of an LLM extraction pass. $null on every other run.
+          $record.structured_output     = $finalResult.structured_output
+          # modelUsage breaks total_cost_usd down per model. Worth keeping
+          # because a run can quietly bill a second, smaller model
+          # alongside the main one (observed: a few cents on a Haiku call
+          # neither condition asked for) -- without this field that cost is
+          # invisible inside the blended total_cost_usd number.
+          $record.model_usage           = $finalResult.modelUsage
           $record.error                 = $null
         } else {
           $record.error      = "No 'result' event found in stream-json output"
           $record.raw_output = ($rawLines -join "`n")
         }
 
-        ($record | ConvertTo-Json -Compress -Depth 6) | Add-Content -Path $ResultsFile -Encoding utf8
+        # File.AppendAllText instead of Add-Content: a bare cmdlet call here
+        # was observed to intermittently throw "Stream was not readable" on
+        # the very first write to a fresh results file (this box's Desktop
+        # is under a synced folder -- OneDrive/AV can hold a transient lock
+        # on file creation). AppendAllText is a lower-level, more reliable
+        # primitive for exactly this, and a few retries absorb a lock that
+        # clears within milliseconds rather than losing the run's data.
+        # UTF8 (no BOM) here matches what analyze-results.py already
+        # expects: it opens with "utf-8-sig", which reads a BOM if present
+        # and is a plain no-op if there isn't one, so this is safe either way.
+        # Renamed to $outLine (not $line) -- the parsing loop above already
+        # used $line as its foreach variable; PowerShell loop variables leak
+        # into the enclosing scope, so reusing the name here would still
+        # work today but would silently break if anything moved.
+        $outLine = ($record | ConvertTo-Json -Compress -Depth 6)
+        $attempt = 0
+        while ($true) {
+          try {
+            [System.IO.File]::AppendAllText($ResultsFile, $outLine + "`n", [System.Text.Encoding]::UTF8)
+            break
+          } catch {
+            $attempt++
+            if ($attempt -ge 5) { throw }
+            Start-Sleep -Milliseconds 200
+          }
+        }
       }
     }
   }
