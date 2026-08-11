@@ -59,6 +59,14 @@ Usage
   # Just the "without CAST" condition (e.g. to add more samples later)
   .\run-benchmark.ps1 -RepoPath ... -AppName recipe -Conditions without -Runs 10
 
+  # Same table-count question only, on Haiku instead of the default model,
+  # all three conditions, written to its own results file so Haiku's numbers
+  # never get blended into the default-model file by accident:
+  .\run-benchmark.ps1 -RepoPath ... -AppName recipe `
+      -QuestionIds table-count -Model haiku `
+      -Conditions without,with,with-forced -Runs 10 `
+      -ResultsFile .\results-haiku.jsonl
+
 Output
   Appends one JSON object per run to -ResultsFile (JSONL, default
   .\results.jsonl next to this script). Fields: app, question_id, condition,
@@ -164,6 +172,40 @@ Structured output (--json-schema)
   the extra hop entirely. Below, a version check warns once at runtime if
   a schema-bearing question is about to run under < 7.3 so this isn't a
   silent surprise.
+
+Model selection (-Model)
+  Empty by default, which leaves `claude -p` on whatever model your CLI
+  config/subscription resolves to (usually the current default Sonnet).
+  Set -Model to a Claude Code model alias or full model ID -- e.g. "haiku",
+  "sonnet", "opus", or a dated model string -- to run the whole benchmark
+  against a specific model instead. Verify the alias resolves on your
+  machine first with a throwaway call (`claude --model haiku -p "hi"`)
+  before a full run, since accepted values can change with the CLI version.
+
+  Every record logs which model actually ran it (record.model), and
+  model_usage (from modelUsage in the stream-json result) still separately
+  breaks down cost per model actually billed -- useful confirmation that a
+  Haiku run didn't quietly fall back to a bigger model for some sub-step.
+
+  Recommended: point -ResultsFile at a MODEL-SPECIFIC file (e.g.
+  results-haiku.jsonl) rather than appending Haiku rows into the same file
+  as default-model rows. score-results.py's summary table groups by (app,
+  question_id, condition) only, not by model -- mixing models into one file
+  would silently blend a Haiku run's accuracy into a Sonnet run's median
+  and misrepresent both. Keep one results file per model, score each
+  separately, then compare the two scores.jsonl files by hand or with a
+  small script -- that keeps the existing scoring pipeline correct without
+  having to change its grouping logic.
+
+Question filtering (-QuestionIds)
+  Empty by default, which runs every question in -QuestionsFile. Set
+  -QuestionIds to one or more question "id" values (e.g. "table-count") to
+  run only those -- useful for a focused comparison (like a single-model,
+  single-question CAST-impact study) without needing a separate, hand-
+  trimmed copy of bench-questions.json. Same comma-splitting rule as
+  -Conditions applies: `-QuestionIds table-count` and
+  `-QuestionIds "table-count,pages-directly-related-to-PrivateMessage-table"`
+  both work whether invoked interactively or via `pwsh -File`.
 #>
 
 param(
@@ -174,6 +216,8 @@ param(
   [string]$ResultsFile   = (Join-Path $PSScriptRoot "results.jsonl"),
   [int]$Runs = 5,
   [string[]]$Conditions = @("without","with"),
+  [string[]]$QuestionIds = @(),
+  [string]$Model = "",
   [string]$BaseAllowedTools = "Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)",
   [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Use them to answer this question rather than relying solely on reading the source code directly."
 )
@@ -214,6 +258,23 @@ if (-not (Test-Path $RepoPath))      { throw "RepoPath not found: $RepoPath" }
 if (-not (Test-Path $QuestionsFile)) { throw "QuestionsFile not found: $QuestionsFile" }
 
 $questions = Get-Content $QuestionsFile -Raw | ConvertFrom-Json
+
+# Same comma-splitting rationale as -Conditions above: normalize by hand
+# rather than rely on [ValidateSet], since a `pwsh -File` invocation hands
+# "table-count,pages-directly-related-to-PrivateMessage-table" in as ONE
+# glued string, not two array elements. Validated against the actual ids
+# found in $QuestionsFile (not a hardcoded list) since the allowed set is
+# whatever bench-questions.json happens to define.
+$QuestionIds = $QuestionIds | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+if ($QuestionIds.Count -gt 0) {
+  $allQuestionIds = $questions | ForEach-Object { $_.id }
+  foreach ($qid in $QuestionIds) {
+    if ($allQuestionIds -notcontains $qid) {
+      throw "Invalid -QuestionIds value '$qid'. Ids present in ${QuestionsFile}: $($allQuestionIds -join ', ')"
+    }
+  }
+  $questions = $questions | Where-Object { $QuestionIds -contains $_.id }
+}
 
 # See the header note "Structured output" above: a schema-bearing question
 # is the one case that can hit the PowerShell-version-dependent quoting
@@ -277,6 +338,14 @@ try {
           $claudeArgs += @("--json-schema", $jsonSchemaArg)
         }
 
+        # Empty by default (leaves claude on whatever model the CLI/
+        # subscription resolves to). See header note "Model selection"
+        # above for why -ResultsFile should be model-specific rather than
+        # relying on record.model alone to keep cohorts separated later.
+        if ($Model) {
+          $claudeArgs += @("--model", $Model)
+        }
+
         # Back to the original, simple invocation. The custom-quoting /
         # ProcessStartInfo detour tried here previously rested on an
         # assumption that turned out wrong: it assumed "claude" is a
@@ -315,6 +384,7 @@ try {
           question_id      = $q.id
           condition        = $condition
           run_index        = $i
+          model            = if ($Model) { $Model } else { "default" }
           used_json_schema = [bool]$jsonSchemaArg
           correct          = $null   # fill in true/false by hand after reading 'result'
         }
