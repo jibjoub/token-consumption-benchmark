@@ -50,7 +50,7 @@
     },
     "expected": {
       "count": 8,
-      "pages": ["pmview.aspx", "myaccount.aspx", "pmread.aspx", "pmsentread.aspx", "pmsend.aspx", "AjaxRequest/AjaxRequest.aspx", "admin/managermain.aspx", "admin/membershipmanagers.aspx"]
+      "pages": ["pmview.aspx", "myaccount.aspx", "pmread.aspx", "pmsentread.aspx", "pmsend.aspx", "AjaxRequest.aspx", "managermain.aspx", "membershipmanagers.aspx"]
     }
   }
 ]

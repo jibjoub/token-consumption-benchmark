@@ -22,17 +22,45 @@ Purpose
   No cross-run memory: every "claude -p" call below starts a brand-new,
   history-free session (no --continue/--resume is ever passed -- do not add
   either flag to this script, that is the one thing that would actually let
-  one run's answer leak into the next).
+  one run's SESSION leak into the next).
+
+  CORRECTION (2026-08-18): the claim that used to be here -- "no-continue/
+  no-resume guarantees no memory carries over" -- is wrong, and a real
+  contamination incident proved it. Claude Code's auto memory feature is on
+  by default and is scoped to the git repo, not the session: every session
+  that runs with cwd inside $RepoPath reads and writes the SAME
+  ~/.claude/projects/<project>/memory/ directory, regardless of --continue/
+  --resume. A "with-forced" run that genuinely calls CAST can save its
+  answer there, and every later run -- including "without", which never
+  loads CAST at all -- gets that answer auto-loaded into context and can
+  just report it back as if it were independently derived. This is exactly
+  what happened to a batch of Haiku table-count runs: "without" runs that
+  had capped at 50% accuracy for two straight days suddenly started
+  scoring 100%, for free, the moment a with-forced run's memory note landed.
+  See the memory files themselves for the confession: each one has an
+  `originSessionId` in its frontmatter pointing straight at the with-forced
+  session that wrote it.
+
+  THE FIX: set $env:CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1" before every
+  `claude` invocation (already done below, right after Push-Location). This
+  is the surgical fix -- it disables exactly the mechanism that leaked,
+  works with normal OAuth/subscription login (no API key needed), and
+  doesn't touch hooks/skills/plugins/CLAUDE.md the way --bare would.
+  One-time cleanup still required: this only stops NEW contamination, it
+  doesn't erase what's already in ~/.claude/projects/<project>/memory/ from
+  before this fix landed -- delete that directory once (see below) before
+  trusting any further runs.
 
   Note on --bare: it also skips auto-loading hooks, skills, plugins,
-  auto-memory, and CLAUDE.md, which would be a nice extra guarantee -- but
-  it ALSO skips OAuth/keychain reads, so it only works if ANTHROPIC_API_KEY
-  is set. If you're logged into `claude` normally (OAuth, e.g. a Claude
-  subscription), --bare will fail with "Not logged in". This script does
-  NOT use --bare for that reason; the no-continue/no-resume rule above is
-  what actually guarantees no memory carries over, and it doesn't need
-  --bare to hold. If you do have an API key and want the extra isolation,
-  set $env:ANTHROPIC_API_KEY and add "--bare" back into $claudeArgs below.
+  auto-memory, and CLAUDE.md, which would be a blunter, more total version
+  of the fix above -- but it ALSO skips OAuth/keychain reads, so it only
+  works if ANTHROPIC_API_KEY is set. If you're logged into `claude`
+  normally (OAuth, e.g. a Claude subscription), --bare will fail with "Not
+  logged in". This script does NOT use --bare for that reason; disabling
+  auto memory specifically (above) gets the guarantee that actually matters
+  without needing an API key. If you do have an API key and want the extra
+  isolation anyway, set $env:ANTHROPIC_API_KEY and add "--bare" back into
+  $claudeArgs below.
 
   The one thing that IS shared across runs, and is not a bug: Anthropic's
   prompt cache. It can make a run cheaper (not smarter) if an earlier run
@@ -66,6 +94,12 @@ Usage
       -QuestionIds table-count -Model haiku `
       -Conditions without,with,with-forced -Runs 10 `
       -ResultsFile .\results-haiku.jsonl
+
+  # Tell Claude which application to search for inside CAST Imaging itself
+  # (the CAST Imaging application name, not -AppName -- see "CAST Imaging
+  # application name" below for why these are two different things):
+  .\run-benchmark.ps1 -RepoPath ... -AppName recipe `
+      -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10
 
 Output
   Appends one JSON object per run to -ResultsFile (JSONL, default
@@ -187,15 +221,16 @@ Model selection (-Model)
   breaks down cost per model actually billed -- useful confirmation that a
   Haiku run didn't quietly fall back to a bigger model for some sub-step.
 
-  Recommended: point -ResultsFile at a MODEL-SPECIFIC file (e.g.
-  results-haiku.jsonl) rather than appending Haiku rows into the same file
-  as default-model rows. score-results.py's summary table groups by (app,
-  question_id, condition) only, not by model -- mixing models into one file
-  would silently blend a Haiku run's accuracy into a Sonnet run's median
-  and misrepresent both. Keep one results file per model, score each
-  separately, then compare the two scores.jsonl files by hand or with a
-  small script -- that keeps the existing scoring pipeline correct without
-  having to change its grouping logic.
+  Either point -ResultsFile at a model-specific file (e.g. results-haiku.jsonl)
+  or append Haiku rows into the same file as default-model rows -- both are
+  fine now. score-results.py reads record.model off each row (falling back to
+  "default" if the field is missing entirely, for rows written before -Model
+  existed), copies it into every scored row in scores.jsonl, and groups its
+  console summary by (app, question_id, model, condition). Mixing models into
+  one results.jsonl no longer blends a Haiku run's accuracy into a Sonnet
+  run's median -- it just produces separate, model-pure groups. Keeping
+  model-specific files is still reasonable if you'd rather not mix them at
+  the source, but it's no longer required for correct scoring.
 
 Question filtering (-QuestionIds)
   Empty by default, which runs every question in -QuestionsFile. Set
@@ -206,6 +241,31 @@ Question filtering (-QuestionIds)
   -Conditions applies: `-QuestionIds table-count` and
   `-QuestionIds "table-count,pages-directly-related-to-PrivateMessage-table"`
   both work whether invoked interactively or via `pwsh -File`.
+
+CAST Imaging application name (-CastImagingAppName)
+  Empty by default -- nothing is added to the prompt and behavior is
+  unchanged from before this parameter existed. Set it to tell Claude which
+  application to look for INSIDE CAST Imaging itself when it calls
+  mcp__CASTImaging__* tools (a CAST Imaging server/instance can host more
+  than one application, so the tools need to know which one to search --
+  without this, Claude either has to search/guess, or falls back on
+  whatever CAST Imaging treats as a default). This is deliberately a
+  DIFFERENT thing from -AppName: -AppName is just this script's own label
+  for grouping rows in the results file (e.g. "recipe", "bigger-app") and
+  is never sent to Claude at all, whereas -CastImagingAppName is text
+  injected into the prompt itself and has to match the application's exact
+  name as registered in CAST Imaging. They'll often be similar strings for
+  the same run, but conflating them is a mistake -- renaming one has no
+  effect on the other.
+
+  Only added when CAST is actually loaded, i.e. only on "with" and
+  "with-forced" runs -- appended to $q.prompt right before the
+  with-forced-only $ForceInstruction, so it applies to both MCP conditions
+  and never touches "without" runs (which have no CAST tools to name an
+  application for in the first place). Every record also logs
+  record.cast_imaging_app_name ($null when unset) so a scored row is
+  self-documenting about which CAST application it targeted, the same way
+  record.model documents which model ran it.
 #>
 
 param(
@@ -218,6 +278,7 @@ param(
   [string[]]$Conditions = @("without","with"),
   [string[]]$QuestionIds = @(),
   [string]$Model = "",
+  [string]$CastImagingAppName = "",
   [string]$BaseAllowedTools = "Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)",
   [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Use them to answer this question rather than relying solely on reading the source code directly."
 )
@@ -292,6 +353,15 @@ if ($anySchemaQuestions -and $PSVersionTable.PSVersion -lt [version]"7.3") {
 
 Push-Location $RepoPath
 try {
+  # Disable Claude Code's auto memory for every call this script makes. Auto
+  # memory is scoped per git repo (~/.claude/projects/<project>/memory/), not
+  # per session, so without this a "with-forced" run's saved answer silently
+  # leaks into every later "without"/"with" run in the same repo -- see the
+  # CORRECTION note above the param() block for the incident that proved it.
+  # Scoped to $env:, so it only affects this script's process tree (and any
+  # `claude` child processes it spawns), not your interactive shell.
+  $env:CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1"
+
   foreach ($q in $questions) {
     foreach ($condition in $Conditions) {
 
@@ -309,8 +379,19 @@ try {
       # forcing instruction on top, so wording never diverges between "with"
       # and "with-forced" by accident.
       $promptText = $q.prompt
+
+      # See header note "CAST Imaging application name" above: only added
+      # when CAST is actually loaded, so a "without" run's prompt is
+      # untouched. Appended BEFORE $ForceInstruction so a with-forced
+      # prompt reads "...question... / which app to search / go use CAST"
+      # in a sensible order rather than the instruction and the app name
+      # fighting for the last word.
+      if ($usesMcp -and $CastImagingAppName) {
+        $promptText = "$promptText`n`nWhen using CAST Imaging MCP tools, the application to search is named `"$CastImagingAppName`" -- use that application, not any other one that may also be registered in CAST Imaging."
+      }
+
       if ($condition -eq "with-forced") {
-        $promptText = "$($q.prompt)`n`n$ForceInstruction"
+        $promptText = "$promptText`n`n$ForceInstruction"
       }
 
       # Optional per-question JSON Schema (see header note "Structured
@@ -385,6 +466,7 @@ try {
           condition        = $condition
           run_index        = $i
           model            = if ($Model) { $Model } else { "default" }
+          cast_imaging_app_name = if ($usesMcp -and $CastImagingAppName) { $CastImagingAppName } else { $null }
           used_json_schema = [bool]$jsonSchemaArg
           correct          = $null   # fill in true/false by hand after reading 'result'
         }
