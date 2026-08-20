@@ -11,7 +11,9 @@
         },
         "tables": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "The distinct table names counted, by exact name."
         },
         "justification": {
@@ -19,38 +21,56 @@
           "description": "Which files, migrations, or entity classes were inspected to arrive at this count."
         }
       },
-      "required": ["count", "tables", "justification"]
+      "required": [
+        "count",
+        "tables",
+        "justification"
+      ]
     },
     "expected": {
       "count": 6,
-      "tables": ["Cooking_Article", "Cooking_Article_Category", "RECIPE_CAT", "Recipes", "usersmain", "RecipeUpdateLog"]
+      "tables": [
+        "Cooking_Article",
+        "Cooking_Article_Category",
+        "RECIPE_CAT",
+        "Recipes",
+        "usersmain",
+        "RecipeUpdateLog"
+      ]
     }
   },
   {
-    "id": "pages-directly-related-to-PrivateMessage-table",
-    "prompt": "I want to modify the PrivateMessage table. Count and list all the aspx pages that can be directly impacted by this change.",
+    "id": "impact-class-name-collision",
+    "prompt": "I'm planning to add a new field to the ProductAttribute entity that maps to the products_attributes database table (defined in the core module under com.salesmanager.core.entity.catalog) -- I need to find every place in the code that actually references this specific class so I know what to check. List every file and method where the code references this class -- instantiates it, declares a variable or field of this type, or casts to it -- not any unrelated class that happens to share the same simple name. For each usage, give the file, the method it's in, and how the class is referenced there. Reply with only this JSON: {\"impacted\": [\"path/File.ext::MethodName\", \"...\"]}",
     "json_schema": {
       "type": "object",
       "properties": {
-        "count": {
-          "type": "integer",
-          "description": "Exact number of distinct .aspx pages found."
-        },
-        "pages": {
+        "impacted": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "The distinct .aspx page paths counted, by exact relative path from the repo root (e.g. 'admin/managermain.aspx')."
-        },
-        "justification": {
-          "type": "string",
-          "description": "Which stored procedures, Blogic dispatcher members, and call chains were inspected to arrive at this count."
+          "items": {
+            "type": "string"
+          },
+          "description": "Usages, each formatted as 'relative/path/File.ext::MethodName', where the code specifically references the described class."
         }
       },
-      "required": ["count", "pages", "justification"]
+      "required": [
+        "impacted"
+      ]
     },
     "expected": {
-      "count": 8,
-      "pages": ["pmview.aspx", "myaccount.aspx", "pmread.aspx", "pmsentread.aspx", "pmsend.aspx", "AjaxRequest.aspx", "managermain.aspx", "membershipmanagers.aspx"]
-    }
+      "impacted": [
+        "sm-shop/src/com/salesmanager/catalog/common/AjaxCatalogUtil.java::addProductToCart",
+        "sm-shop/src/com/salesmanager/catalog/product/ProductDetailsAction.java::displayProduct",
+        "sm-shop/src/com/salesmanager/checkout/cart/ShoppingCartAction.java::assembleShoppingCartItems",
+        "sm-shop/src/com/salesmanager/checkout/cart/ShoppingCartAction.java::assembleItems",
+        "sm-shop/src/com/salesmanager/checkout/subscription/SubscriptionAction.java::addItem",
+        "sm-central/src/com/salesmanager/central/catalog/EditProductAttributesAction.java::editProductAttributes",
+        "sm-central/src/com/salesmanager/central/catalog/EditProductAttributesAction.java::addProductAttributes"
+      ]
+    },
+    "distractors_not_expected": [
+      "sm-shop/src/com/salesmanager/catalog/common/AjaxCatalogUtil.java -- setPrice(ProductAttribute[] attributes, ...), addProductWithAttributes(...), and addProductToCart(...) all take com.salesmanager.catalog.product.ProductAttribute[] as a parameter type -- note this is the SAME FILE (and for addProductToCart, the SAME METHOD) as one of the expected hits above, but the parameter type is the unrelated shop DTO class, not the core entity",
+      "sm-shop/src/com/salesmanager/catalog/cart/MiniShoppingCartAction.java -- private ProductAttribute[] attributes field plus getAttributes()/setAttributes(), using com.salesmanager.catalog.product.ProductAttribute (the shop DTO), not the core entity"
+    ]
   }
 ]
