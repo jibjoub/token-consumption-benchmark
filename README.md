@@ -140,11 +140,62 @@ For free-text questions (no `expected`/`json_schema`), open `results.jsonl`, rea
 - **Structured output (`--json-schema`) is not free**: it adds roughly one extra turn and a small extra cost, and can suppress prose reasoning. Treat `used_json_schema` as its own cohort — don't average a schema-on row against a schema-off row for the same `question_id`.
 - **Model mixing is safe now**, but keep it deliberate: `results.jsonl` rows carry a `model` field (`"default"` when `-Model` is unset), and both scoring scripts group by it — so a mixed file produces model-pure groups instead of a blended median. Rows predating this field have no `model` key at all and are normalized to `"default"`.
 
+## Extending to a bigger app (Hades)
+
+To test whether CAST's value grows with codebase scale/complexity, the same four
+question *types* were re-derived against **Hades**, a much larger mainframe app
+already registered in CAST Imaging (app name `Hades`): 676 COBOL programs, 635
+copybooks, batch + CICS + IMS, a real telco/HR system ("MYTELCO"/"UNICARE").
+Question set: [`bench-questions-hades.json`](bench-questions-hades.json).
+
+Every `expected` value below was hand-verified by reading the actual COBOL
+source (EXEC SQL blocks, CALL statements, copybook VALUE clauses) -- not
+inferred -- following this project's own "verify the ground truth by hand"
+rule.
+
+| id | Mirrors | What it tests | Ground truth |
+|---|---|---|---|
+| `table-count` | Recipe's `table-count` | Direct SQL tables touched by program `IMM102S` | 9 tables |
+| `programs-directly-related-to-EMP-table` | Recipe's `pages-directly-related-to-PrivateMessage-table` | Programs directly touching table `EMP` | **58** programs (vs. Recipe's 8 pages -- the gap this is meant to widen) |
+| `calls-to-immdates` | Recipe's `calls-to-blogic-getrelatedarticle` | Call sites for subprogram `IMMDATES` | **239** callers total, but only **11** via a literal `CALL 'IMMDATES'` -- the other 228 call it exclusively through a copybook-supplied field (`IMMDATES-PGM-NAME`, see `COPYBOOKS/IMMDATED.CPY`). A plain-text search for the literal call misses ~95% of real call sites -- this is the strongest single case in this project for showing CAST resolving something grep genuinely can't. |
+| `impact-radius-immeieio` | Recipe's `impact-radius-blogic-getrelatedarticle` | Full footprint of subprogram `IMMEIEIO`: callers + its own tables | 6 calling programs, 3 tables (`IMM.DELTA`, `IMM.KEYS`, `SYSIBM.SYSDUMMY1`) |
+
+**Known scoring gap (pre-existing, not new):** `score-results.py` only
+auto-scores one array field per question (see `FIELD_PRIORITY` / fallback in
+that script). Recipe's own `impact-radius` question has the same limitation --
+only `pages` gets auto-scored, `stored_procedures` doesn't. For
+`impact-radius-immeieio`, `tables` will be auto-scored (it's in
+`FIELD_PRIORITY`) and `calling_programs` will need a manual look at
+`structured_output` until/unless `score-results.py` is extended to compare
+more than one array field per question.
+
+To run it (once ready -- NOT launched yet as of this note):
+
+```powershell
+.\run-benchmark.ps1 `
+    -RepoPath "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL" `
+    -AppName hades `
+    -QuestionsFile .\bench-questions-hades.json `
+    -McpConfigPath .\cast.json `
+    -CastImagingAppName "Hades" `
+    -Conditions without,with,with-forced `
+    -Runs 5
+```
+
+Then score against the same shared file so `analyze-results.py` can build a
+cross-app comparison table:
+
+```powershell
+python score-results.py results.jsonl bench-questions-hades.json
+python analyze-results.py results.jsonl
+```
+
 ## Files in this repo
 
 | File | Role |
 |---|---|
 | [`bench-questions.json`](bench-questions.json) | Question definitions + ground truth. |
+| [`bench-questions-hades.json`](bench-questions-hades.json) | Question definitions + ground truth for the Hades extension (see above). |
 | [`run-benchmark.ps1`](run-benchmark.ps1) | Runner — drives `claude -p`, writes `results.jsonl`. |
 | [`score-results.py`](score-results.py) | Automatic scoring against ground truth → `scores.jsonl`. |
 | [`analyze-results.py`](analyze-results.py) | Console summary table from `results.jsonl`. |
