@@ -52,5 +52,78 @@
       "count": 8,
       "pages": ["pmview.aspx", "myaccount.aspx", "pmread.aspx", "pmsentread.aspx", "pmsend.aspx", "AjaxRequest.aspx", "managermain.aspx", "membershipmanagers.aspx"]
     }
+  },
+  {
+    "id": "calls-to-blogic-getrelatedarticle",
+    "prompt": "I'm planning to change the internal behavior of the method GetRelatedArticle defined in the class Blogic (the number and types of parameters stay identical, only the logic changes). List all calls in the code that specifically invoke this method of this class — not a call to a different method sharing the same name in a different class. For each call, specify the file, the calling method, and through which variable/type the call is made.",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "Exact number of call sites found that invoke Blogic's GetRelatedArticle(int,int) specifically."
+        },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Distinct file paths (relative to repo root) containing a call to Blogic's GetRelatedArticle."
+        },
+        "calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": { "type": "string" },
+              "calling_method": { "type": "string" },
+              "access_path": { "type": "string", "description": "The variable or type through which the call is made." }
+            },
+            "required": ["file", "calling_method", "access_path"]
+          },
+          "description": "One entry per call site."
+        },
+        "justification": {
+          "type": "string",
+          "description": "Which files/classes were inspected to arrive at this list."
+        }
+      },
+      "required": ["count", "files", "calls", "justification"]
+    },
+    "expected": {
+      "count": 1,
+      "files": ["App_Code/BLL/Providers/Article/ProvideRalatedArticle.cs"]
+    }
+  },
+  {
+    "id": "impact-radius-blogic-getrelatedarticle",
+    "prompt": "I'm planning to change the internal behavior of the method GetRelatedArticle defined in the class Blogic (the number and types of parameters stay identical, only the logic changes). Before I touch anything, I need the full impact footprint of this change: 1) every frontend .aspx page whose behavior would change as a result -- trace this through the actual call chain, do not include a page just because it contains an unrelated method sharing the same name; 2) every stored procedure this method invokes, and every database table that stored procedure reads from or writes to. For each page, explain the call chain connecting it to the method. For each table, name the stored procedure that touches it.",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Distinct .aspx pages impacted, relative path from repo root."
+        },
+        "stored_procedures": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Stored procedures invoked by GetRelatedArticle."
+        },
+        "tables": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Database tables touched by those stored procedures."
+        },
+        "justification": {
+          "type": "string",
+          "description": "Call chains and evidence used to arrive at this list."
+        }
+      },
+      "required": ["pages", "stored_procedures", "tables", "justification"]
+    },
+    "expected": {
+      "pages": ["articledetail.aspx"],
+      "stored_procedures": ["spSelectRelatedArticle"]
+    }
   }
 ]
