@@ -159,6 +159,7 @@ rule.
 | `programs-directly-related-to-EMP-table` | Recipe's `pages-directly-related-to-PrivateMessage-table` | Programs directly touching table `EMP` | **58** programs (vs. Recipe's 8 pages -- the gap this is meant to widen) |
 | `calls-to-immdates` | Recipe's `calls-to-blogic-getrelatedarticle` | Call sites for subprogram `IMMDATES` | **239** callers total, but only **11** via a literal `CALL 'IMMDATES'` -- the other 228 call it exclusively through a copybook-supplied field (`IMMDATES-PGM-NAME`, see `COPYBOOKS/IMMDATED.CPY`). A plain-text search for the literal call misses ~95% of real call sites -- this is the strongest single case in this project for showing CAST resolving something grep genuinely can't. |
 | `impact-radius-immeieio` | Recipe's `impact-radius-blogic-getrelatedarticle` | Full footprint of subprogram `IMMEIEIO`: callers + its own tables | 6 calling programs, 3 tables (`IMM.DELTA`, `IMM.KEYS`, `SYSIBM.SYSDUMMY1`) |
+| `impact-ims-pcb-immmbrdb` | (new type, no Recipe mirror) | Paragraphs across the codebase that call DL/I against the 3rd PCB (`DBDNAME=IMMMBRDB`) of PSB `IMM0038` -- reached only through generic `IMMDBPCB` copybook indirection, with **no literal PCB name in source at all** (positional binding) | CAST-reported count: **65** paragraphs. Independently verified: the PSB structure (`IMS/PSB/IMM0038.PSB` ~L15-36) and the copybook indirection mechanism (`COBOL/PROGRAMS/IMM0038.COB` ~L2810-2834) are hand-confirmed; the full count/list of 65 is CAST-self-reported only and has not been independently reconstructed -- that gap is the point of the question. `expected.paragraphs` is not yet populated (only `expected.count`). |
 
 **Known scoring gap (pre-existing, not new):** `score-results.py` only
 auto-scores one array field per question (see `FIELD_PRIORITY` / fallback in
@@ -169,7 +170,7 @@ only `pages` gets auto-scored, `stored_procedures` doesn't. For
 `structured_output` until/unless `score-results.py` is extended to compare
 more than one array field per question.
 
-To run it (once ready -- NOT launched yet as of this note):
+To run it manually (data collection is underway; some question/condition combos are still pending -- see the nightly automation note below for what's scheduled automatically):
 
 ```powershell
 .\run-benchmark.ps1 `
@@ -190,6 +191,27 @@ python score-results.py results.jsonl bench-questions-hades.json
 python analyze-results.py results.jsonl
 ```
 
+### Nightly automation
+
+The still-missing Hades question/condition combos don't have to be launched by
+hand every time. [`run-benchmark-nightly.ps1`](run-benchmark-nightly.ps1) is a
+thin wrapper around `run-benchmark.ps1` (fixed `-RepoPath`/`-QuestionsFile`/
+`-McpConfigPath`/`-Conditions`/`-QuestionIds`/`-Runs 2`, matching the account's
+weekly spend-limit constraint) that also writes a timestamped log to
+`nightly-logs/` and appends a one-line summary (new rows logged tonight vs.
+how many failed on login/spend-limit) so the morning check is a single
+`Get-Content` away instead of a manual `results.jsonl` grep.
+
+It's registered as a Windows Scheduled Task named `CastBenchmarkHadesNightly`,
+daily at 02:00, running under `pwsh` (PowerShell 7, required for `--json-schema`
+questions to survive the npm-shim hop -- see the "Structured output" note
+above), with "wake the computer to run this task" enabled so a sleeping
+machine still fires at the scheduled time (does not help if the machine is
+fully shut down). Edit the `-QuestionIds`/`-Conditions`/`-Runs` values inside
+`run-benchmark-nightly.ps1` directly to change what runs next, or manage the
+task itself with `Get-ScheduledTask -TaskName CastBenchmarkHadesNightly` /
+`Disable-ScheduledTask` / `Unregister-ScheduledTask`.
+
 ## Files in this repo
 
 | File | Role |
@@ -197,6 +219,7 @@ python analyze-results.py results.jsonl
 | [`bench-questions.json`](bench-questions.json) | Question definitions + ground truth. |
 | [`bench-questions-hades.json`](bench-questions-hades.json) | Question definitions + ground truth for the Hades extension (see above). |
 | [`run-benchmark.ps1`](run-benchmark.ps1) | Runner — drives `claude -p`, writes `results.jsonl`. |
+| [`run-benchmark-nightly.ps1`](run-benchmark-nightly.ps1) | Nightly wrapper (fixed args, per-run log, morning summary) registered as the `CastBenchmarkHadesNightly` Windows Scheduled Task. |
 | [`score-results.py`](score-results.py) | Automatic scoring against ground truth → `scores.jsonl`. |
 | [`analyze-results.py`](analyze-results.py) | Console summary table from `results.jsonl`. |
 | [`results.jsonl`](results.jsonl) | Append-only observation log (default model). |
