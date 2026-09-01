@@ -11,7 +11,9 @@
         },
         "tables": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "The distinct table names counted, by exact name."
         },
         "justification": {
@@ -19,11 +21,25 @@
           "description": "Which files, copybooks, or SQL statements were inspected to arrive at this count."
         }
       },
-      "required": ["count", "tables", "justification"]
+      "required": [
+        "count",
+        "tables",
+        "justification"
+      ]
     },
     "expected": {
       "count": 9,
-      "tables": ["ADDRESS", "CANCEL", "EMPLOYER_GROUP", "GROUP_CERT", "LB_SUPPL", "LIFE_HISTORY", "NOTES", "PROD_HIST", "SUMMARY_BILL"]
+      "tables": [
+        "ADDRESS",
+        "CANCEL",
+        "EMPLOYER_GROUP",
+        "GROUP_CERT",
+        "LB_SUPPL",
+        "LIFE_HISTORY",
+        "NOTES",
+        "PROD_HIST",
+        "SUMMARY_BILL"
+      ]
     }
   },
   {
@@ -38,7 +54,9 @@
         },
         "programs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "The distinct program file names counted, by exact file name (e.g. 'COBASV01.COB')."
         },
         "justification": {
@@ -46,11 +64,74 @@
           "description": "Which SQL statements, cursors, or copybooks were inspected to arrive at this count."
         }
       },
-      "required": ["count", "programs", "justification"]
+      "required": [
+        "count",
+        "programs",
+        "justification"
+      ]
     },
     "expected": {
       "count": 58,
-      "programs": ["APIASV22.COB", "APIASV29.COB", "COBASV01.COB", "COBASV02.COB", "COBASV03.COB", "COBASV04.COB", "COBASV05.COB", "COBASV06.COB", "COBASV07.COB", "COBASV08.COB", "COBASV09.COB", "COBASV10.COB", "COBASV11.COB", "COBASV22.COB", "COBASV29.COB", "COBASV30.COB", "COBASV31.COB", "COBASV32.COB", "COBASV33.COB", "COBASV34.COB", "COBASV35.COB", "COBASV36.COB", "COBASV37.COB", "COBASV38.COB", "COBEMPDP.COB", "COBHDAT1.COB", "COBHDAT2.COB", "COBRPT01.COB", "COBRPT02.COB", "COBRPT03.COB", "COBRPT09.COB", "COBRPT10.COB", "COBRPT11.COB", "COBRPT12.COB", "COBRPT13.COB", "COBRPT14.COB", "COBRPT15.COB", "COBRPT16.COB", "COBRPT17.COB", "COBRPT18.COB", "COBRPT19.COB", "COBRPT20.COB", "COBRPT21.COB", "COBRPT22.COB", "COBRPT23.COB", "COBRPT24.COB", "COBRPT25.COB", "COBRPT26.COB", "COBRPT27.COB", "COBRPT28.COB", "COBRPT29.COB", "COBRPT30.COB", "COBSALR1.COB", "COBSALR2.COB", "COBSALR3.COB", "COBSPDTL.COB", "COBSPSET.COB", "SPG.COB"]
+      "programs": [
+        "APIASV22.COB",
+        "APIASV29.COB",
+        "COBASV01.COB",
+        "COBASV02.COB",
+        "COBASV03.COB",
+        "COBASV04.COB",
+        "COBASV05.COB",
+        "COBASV06.COB",
+        "COBASV07.COB",
+        "COBASV08.COB",
+        "COBASV09.COB",
+        "COBASV10.COB",
+        "COBASV11.COB",
+        "COBASV22.COB",
+        "COBASV29.COB",
+        "COBASV30.COB",
+        "COBASV31.COB",
+        "COBASV32.COB",
+        "COBASV33.COB",
+        "COBASV34.COB",
+        "COBASV35.COB",
+        "COBASV36.COB",
+        "COBASV37.COB",
+        "COBASV38.COB",
+        "COBEMPDP.COB",
+        "COBHDAT1.COB",
+        "COBHDAT2.COB",
+        "COBRPT01.COB",
+        "COBRPT02.COB",
+        "COBRPT03.COB",
+        "COBRPT09.COB",
+        "COBRPT10.COB",
+        "COBRPT11.COB",
+        "COBRPT12.COB",
+        "COBRPT13.COB",
+        "COBRPT14.COB",
+        "COBRPT15.COB",
+        "COBRPT16.COB",
+        "COBRPT17.COB",
+        "COBRPT18.COB",
+        "COBRPT19.COB",
+        "COBRPT20.COB",
+        "COBRPT21.COB",
+        "COBRPT22.COB",
+        "COBRPT23.COB",
+        "COBRPT24.COB",
+        "COBRPT25.COB",
+        "COBRPT26.COB",
+        "COBRPT27.COB",
+        "COBRPT28.COB",
+        "COBRPT29.COB",
+        "COBRPT30.COB",
+        "COBSALR1.COB",
+        "COBSALR2.COB",
+        "COBSALR3.COB",
+        "COBSPDTL.COB",
+        "COBSPSET.COB",
+        "SPG.COB"
+      ]
     }
   },
   {
@@ -65,7 +146,9 @@
         },
         "files": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Distinct file names (e.g. 'IMM0038.COB') containing a call to IMMDATES."
         },
         "calls": {
@@ -73,10 +156,18 @@
           "items": {
             "type": "object",
             "properties": {
-              "file": { "type": "string" },
-              "call_style": { "type": "string", "description": "'literal' for CALL 'IMMDATES', or 'indirect' for a call through a named field/variable." }
+              "file": {
+                "type": "string"
+              },
+              "call_style": {
+                "type": "string",
+                "description": "'literal' for CALL 'IMMDATES', or 'indirect' for a call through a named field/variable."
+              }
             },
-            "required": ["file", "call_style"]
+            "required": [
+              "file",
+              "call_style"
+            ]
           },
           "description": "One entry per call site."
         },
@@ -85,11 +176,256 @@
           "description": "Which files/copybooks were inspected to arrive at this list, and how indirect calls were resolved."
         }
       },
-      "required": ["count", "files", "calls", "justification"]
+      "required": [
+        "count",
+        "files",
+        "calls",
+        "justification"
+      ]
     },
     "expected": {
       "count": 239,
-      "files": ["IMM0038.COB", "IMM0046.COB", "IMM0057.COB", "IMM0150B.COB", "IMM0191.COB", "IMM0193.COB", "IMM0271.COB", "IMM0280.COB", "IMM0294.COB", "IMM0295.COB", "IMM0297.COB", "IMM0405.COB", "IMM0407.COB", "IMM0600.COB", "IMM0621.COB", "IMM0630.COB", "IMM0651.COB", "IMM0680.COB", "IMM0681.COB", "IMM0685.COB", "IMM0688.COB", "IMM0691.COB", "IMM0696.COB", "IMM0698.COB", "IMM0699.COB", "IMM0760.COB", "IMM0770.COB", "IMM0840.COB", "IMM0860.COB", "IMM0880.COB", "IMM0940.COB", "IMM0980.COB", "IMM1851.COB", "IMM2200.COB", "IMM2300.COB", "IMM2701.COB", "IMM3275.COB", "IMM3280.COB", "IMM3600.COB", "IMM3610.COB", "IMM3800.COB", "IMM4101.COB", "IMM5001.COB", "IMM5500.COB", "IMM930.COB", "IMM9430.COB", "IMMADJFU.COB", "IMMANNVI.COB", "IMMANNVU.COB", "IMMANVHR.COB", "IMMANVIO.COB", "IMMANVRS.COB", "IMMBEFC.COB", "IMMBEFC1.COB", "IMMBEFC2.COB", "IMMBEFM.COB", "IMMBLTPU.COB", "IMMBNTAV.COB", "IMMBSRTU.COB", "IMMBUWRT.COB", "IMMCCCD.COB", "IMMCCDA.COB", "IMMCCRQ.COB", "IMMCEFC.COB", "IMMCEFC1.COB", "IMMCEFC2.COB", "IMMCEFM.COB", "IMMCMNCS.COB", "IMMCNTC.COB", "IMMCNTC2.COB", "IMMCNTCS.COB", "IMMCNTR.COB", "IMMCNTR2.COB", "IMMCNTR3.COB", "IMMCNTX.COB", "IMMCOEDS.COB", "IMMCONT.COB", "IMMCTCG.COB", "IMMCTCM.COB", "IMMCTHS.COB", "IMMCTREF.COB", "IMMCXEF.COB", "IMMDADU.COB", "IMMDISI.COB", "IMMDISU.COB", "IMMDNTI.COB", "IMMDSBUS.COB", "IMMDSBVS.COB", "IMMECKI.COB", "IMMECNV.COB", "IMMEECTS.COB", "IMMEGCC.COB", "IMMEGCCS.COB", "IMMEGCS.COB", "IMMEGCSS.COB", "IMMEGCU.COB", "IMMEGCUS.COB", "IMMEGCX.COB", "IMMEGFS.COB", "IMMEGHC.COB", "IMMEGHCS.COB", "IMMEGIQ.COB", "IMMEGPA.COB", "IMMEGPI.COB", "IMMEGPUU.COB", "IMMEGPUV.COB", "IMMEGRI.COB", "IMMEGUAR.COB", "IMMEGUPV.COB", "IMMEHTI.COB", "IMMEMBA.COB", "IMMEMBAS.COB", "IMMEMBEF.COB", "IMMEMBM.COB", "IMMEMBMS.COB", "IMMEMBN.COB", "IMMEMBS.COB", "IMMEMBU.COB", "IMMEMBUS.COB", "IMMENBN.COB", "IMMENRC.COB", "IMMENRCS.COB", "IMMENREF.COB", "IMMENRL.COB", "IMMENRLS.COB", "IMMENRM.COB", "IMMENRMS.COB", "IMMENRN.COB", "IMMENRS.COB", "IMMENRU.COB", "IMMENRUS.COB", "IMMENTA.COB", "IMMEPGX.COB", "IMMERTFS.COB", "IMMERTFX.COB", "IMMERTHS.COB", "IMMERTHX.COB", "IMMESUB.COB", "IMMESUP.COB", "IMMESUPS.COB", "IMMEWCF.COB", "IMMFEBIL.COB", "IMMFTPCD.COB", "IMMGCRC.COB", "IMMGENC.COB", "IMMGPCT.COB", "IMMGPXF.COB", "IMMGRPA.COB", "IMMGRPI.COB", "IMMGRTC.COB", "IMMGRTI.COB", "IMMGRTU.COB", "IMMGUARS.COB", "IMMHCKA.COB", "IMMHCKC.COB", "IMMHCKT.COB", "IMMHCNT.COB", "IMMHCTH.COB", "IMMHCTM.COB", "IMMHLFE.COB", "IMMHMBM.COB", "IMMHMBR.COB", "IMMIDRQ.COB", "IMMIEAD.COB", "IMMIMBA.COB", "IMMIMBK.COB", "IMMIMBM.COB", "IMMIMBN.COB", "IMMIMBU.COB", "IMMINRC.COB", "IMMINRD.COB", "IMMINRK.COB", "IMMINRL.COB", "IMMINRM.COB", "IMMINRN.COB", "IMMINRS.COB", "IMMINRU.COB", "IMMIOED.COB", "IMMIRGU.COB", "IMMISUB.COB", "IMMIZPU.COB", "IMMLFEU.COB", "IMMLFRC.COB", "IMMLIFE.COB", "IMMLIPU.COB", "IMMLIRC.COB", "IMMLISC.COB", "IMMLPOL.COB", "IMMLSTA.COB", "IMMLSTI.COB", "IMMLU62S.COB", "IMMMBHI.COB", "IMMMBRC.COB", "IMMMBRC2.COB", "IMMMBRCS.COB", "IMMMBREF.COB", "IMMMBRM.COB", "IMMMBRX.COB", "IMMMBRX2.COB", "IMMMBRXS.COB", "IMMMBXM.COB", "IMMMEMB.COB", "IMMNTIM.COB", "IMMNTIOS.COB", "IMMNTWCR.COB", "IMMNTWKU.COB", "IMMNTWKV.COB", "IMMPMGB.COB", "IMMPMGC.COB", "IMMPMGI.COB", "IMMPMGQ.COB", "IMMPMGU.COB", "IMMPRLES.COB", "IMMPRLU.COB", "IMMPRLUF.COB", "IMMPXF0.COB", "IMMPXF2.COB", "IMMPXF2S.COB", "IMMPXF3.COB", "IMMPXF4.COB", "IMMPXF4S.COB", "IMMRFNXS.COB", "IMMRTCC.COB", "IMMSBCX.COB", "IMMSBDU.COB", "IMMSBLA.COB", "IMMSBLI.COB", "IMMSBLU.COB", "IMMSBRI.COB", "IMMSBRIM.COB", "IMMSBUP.COB", "IMMTABL.COB", "IMMTBLA.COB", "IMMTRRQ.COB", "IMMTYPC.COB", "IMMUBKC.COB", "IMMUBKU.COB", "IMMUWRTU.COB", "IMMZIPI.COB"]
+      "files": [
+        "IMM0038.COB",
+        "IMM0046.COB",
+        "IMM0057.COB",
+        "IMM0150B.COB",
+        "IMM0191.COB",
+        "IMM0193.COB",
+        "IMM0271.COB",
+        "IMM0280.COB",
+        "IMM0294.COB",
+        "IMM0295.COB",
+        "IMM0297.COB",
+        "IMM0405.COB",
+        "IMM0407.COB",
+        "IMM0600.COB",
+        "IMM0621.COB",
+        "IMM0630.COB",
+        "IMM0651.COB",
+        "IMM0680.COB",
+        "IMM0681.COB",
+        "IMM0685.COB",
+        "IMM0688.COB",
+        "IMM0691.COB",
+        "IMM0696.COB",
+        "IMM0698.COB",
+        "IMM0699.COB",
+        "IMM0760.COB",
+        "IMM0770.COB",
+        "IMM0840.COB",
+        "IMM0860.COB",
+        "IMM0880.COB",
+        "IMM0940.COB",
+        "IMM0980.COB",
+        "IMM1851.COB",
+        "IMM2200.COB",
+        "IMM2300.COB",
+        "IMM2701.COB",
+        "IMM3275.COB",
+        "IMM3280.COB",
+        "IMM3600.COB",
+        "IMM3610.COB",
+        "IMM3800.COB",
+        "IMM4101.COB",
+        "IMM5001.COB",
+        "IMM5500.COB",
+        "IMM930.COB",
+        "IMM9430.COB",
+        "IMMADJFU.COB",
+        "IMMANNVI.COB",
+        "IMMANNVU.COB",
+        "IMMANVHR.COB",
+        "IMMANVIO.COB",
+        "IMMANVRS.COB",
+        "IMMBEFC.COB",
+        "IMMBEFC1.COB",
+        "IMMBEFC2.COB",
+        "IMMBEFM.COB",
+        "IMMBLTPU.COB",
+        "IMMBNTAV.COB",
+        "IMMBSRTU.COB",
+        "IMMBUWRT.COB",
+        "IMMCCCD.COB",
+        "IMMCCDA.COB",
+        "IMMCCRQ.COB",
+        "IMMCEFC.COB",
+        "IMMCEFC1.COB",
+        "IMMCEFC2.COB",
+        "IMMCEFM.COB",
+        "IMMCMNCS.COB",
+        "IMMCNTC.COB",
+        "IMMCNTC2.COB",
+        "IMMCNTCS.COB",
+        "IMMCNTR.COB",
+        "IMMCNTR2.COB",
+        "IMMCNTR3.COB",
+        "IMMCNTX.COB",
+        "IMMCOEDS.COB",
+        "IMMCONT.COB",
+        "IMMCTCG.COB",
+        "IMMCTCM.COB",
+        "IMMCTHS.COB",
+        "IMMCTREF.COB",
+        "IMMCXEF.COB",
+        "IMMDADU.COB",
+        "IMMDISI.COB",
+        "IMMDISU.COB",
+        "IMMDNTI.COB",
+        "IMMDSBUS.COB",
+        "IMMDSBVS.COB",
+        "IMMECKI.COB",
+        "IMMECNV.COB",
+        "IMMEECTS.COB",
+        "IMMEGCC.COB",
+        "IMMEGCCS.COB",
+        "IMMEGCS.COB",
+        "IMMEGCSS.COB",
+        "IMMEGCU.COB",
+        "IMMEGCUS.COB",
+        "IMMEGCX.COB",
+        "IMMEGFS.COB",
+        "IMMEGHC.COB",
+        "IMMEGHCS.COB",
+        "IMMEGIQ.COB",
+        "IMMEGPA.COB",
+        "IMMEGPI.COB",
+        "IMMEGPUU.COB",
+        "IMMEGPUV.COB",
+        "IMMEGRI.COB",
+        "IMMEGUAR.COB",
+        "IMMEGUPV.COB",
+        "IMMEHTI.COB",
+        "IMMEMBA.COB",
+        "IMMEMBAS.COB",
+        "IMMEMBEF.COB",
+        "IMMEMBM.COB",
+        "IMMEMBMS.COB",
+        "IMMEMBN.COB",
+        "IMMEMBS.COB",
+        "IMMEMBU.COB",
+        "IMMEMBUS.COB",
+        "IMMENBN.COB",
+        "IMMENRC.COB",
+        "IMMENRCS.COB",
+        "IMMENREF.COB",
+        "IMMENRL.COB",
+        "IMMENRLS.COB",
+        "IMMENRM.COB",
+        "IMMENRMS.COB",
+        "IMMENRN.COB",
+        "IMMENRS.COB",
+        "IMMENRU.COB",
+        "IMMENRUS.COB",
+        "IMMENTA.COB",
+        "IMMEPGX.COB",
+        "IMMERTFS.COB",
+        "IMMERTFX.COB",
+        "IMMERTHS.COB",
+        "IMMERTHX.COB",
+        "IMMESUB.COB",
+        "IMMESUP.COB",
+        "IMMESUPS.COB",
+        "IMMEWCF.COB",
+        "IMMFEBIL.COB",
+        "IMMFTPCD.COB",
+        "IMMGCRC.COB",
+        "IMMGENC.COB",
+        "IMMGPCT.COB",
+        "IMMGPXF.COB",
+        "IMMGRPA.COB",
+        "IMMGRPI.COB",
+        "IMMGRTC.COB",
+        "IMMGRTI.COB",
+        "IMMGRTU.COB",
+        "IMMGUARS.COB",
+        "IMMHCKA.COB",
+        "IMMHCKC.COB",
+        "IMMHCKT.COB",
+        "IMMHCNT.COB",
+        "IMMHCTH.COB",
+        "IMMHCTM.COB",
+        "IMMHLFE.COB",
+        "IMMHMBM.COB",
+        "IMMHMBR.COB",
+        "IMMIDRQ.COB",
+        "IMMIEAD.COB",
+        "IMMIMBA.COB",
+        "IMMIMBK.COB",
+        "IMMIMBM.COB",
+        "IMMIMBN.COB",
+        "IMMIMBU.COB",
+        "IMMINRC.COB",
+        "IMMINRD.COB",
+        "IMMINRK.COB",
+        "IMMINRL.COB",
+        "IMMINRM.COB",
+        "IMMINRN.COB",
+        "IMMINRS.COB",
+        "IMMINRU.COB",
+        "IMMIOED.COB",
+        "IMMIRGU.COB",
+        "IMMISUB.COB",
+        "IMMIZPU.COB",
+        "IMMLFEU.COB",
+        "IMMLFRC.COB",
+        "IMMLIFE.COB",
+        "IMMLIPU.COB",
+        "IMMLIRC.COB",
+        "IMMLISC.COB",
+        "IMMLPOL.COB",
+        "IMMLSTA.COB",
+        "IMMLSTI.COB",
+        "IMMLU62S.COB",
+        "IMMMBHI.COB",
+        "IMMMBRC.COB",
+        "IMMMBRC2.COB",
+        "IMMMBRCS.COB",
+        "IMMMBREF.COB",
+        "IMMMBRM.COB",
+        "IMMMBRX.COB",
+        "IMMMBRX2.COB",
+        "IMMMBRXS.COB",
+        "IMMMBXM.COB",
+        "IMMMEMB.COB",
+        "IMMNTIM.COB",
+        "IMMNTIOS.COB",
+        "IMMNTWCR.COB",
+        "IMMNTWKU.COB",
+        "IMMNTWKV.COB",
+        "IMMPMGB.COB",
+        "IMMPMGC.COB",
+        "IMMPMGI.COB",
+        "IMMPMGQ.COB",
+        "IMMPMGU.COB",
+        "IMMPRLES.COB",
+        "IMMPRLU.COB",
+        "IMMPRLUF.COB",
+        "IMMPXF0.COB",
+        "IMMPXF2.COB",
+        "IMMPXF2S.COB",
+        "IMMPXF3.COB",
+        "IMMPXF4.COB",
+        "IMMPXF4S.COB",
+        "IMMRFNXS.COB",
+        "IMMRTCC.COB",
+        "IMMSBCX.COB",
+        "IMMSBDU.COB",
+        "IMMSBLA.COB",
+        "IMMSBLI.COB",
+        "IMMSBLU.COB",
+        "IMMSBRI.COB",
+        "IMMSBRIM.COB",
+        "IMMSBUP.COB",
+        "IMMTABL.COB",
+        "IMMTBLA.COB",
+        "IMMTRRQ.COB",
+        "IMMTYPC.COB",
+        "IMMUBKC.COB",
+        "IMMUBKU.COB",
+        "IMMUWRTU.COB",
+        "IMMZIPI.COB"
+      ]
     }
   },
   {
@@ -100,12 +436,16 @@
       "properties": {
         "calling_programs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Distinct COBOL program file names that directly call IMMEIEIO."
         },
         "tables": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Database tables read from or written to directly inside IMMEIEIO."
         },
         "justification": {
@@ -113,11 +453,59 @@
           "description": "Call sites and SQL statements used as evidence for this list."
         }
       },
-      "required": ["calling_programs", "tables", "justification"]
+      "required": [
+        "calling_programs",
+        "tables",
+        "justification"
+      ]
     },
     "expected": {
-      "calling_programs": ["IMM0310.COB", "IMM0360.COB", "IMM0361.COB", "IMM0362.COB", "IMM0363.COB", "IMM0379.COB"],
-      "tables": ["IMM.DELTA", "IMM.KEYS", "SYSIBM.SYSDUMMY1"]
+      "calling_programs": [
+        "IMM0310.COB",
+        "IMM0360.COB",
+        "IMM0361.COB",
+        "IMM0362.COB",
+        "IMM0363.COB",
+        "IMM0379.COB"
+      ],
+      "tables": [
+        "IMM.DELTA",
+        "IMM.KEYS",
+        "SYSIBM.SYSDUMMY1"
+      ]
     }
+  },
+  {
+    "id": "impact-ims-pcb-immmbrdb",
+    "prompt": "I'm planning to change how the MEMBERSHIP IMS database (DBDNAME IMMMBRDB, PSB IMM0038, the 3rd PCB declared in that PSB, PROCOPT=AP) is accessed. List every COBOL paragraph across the entire codebase that performs a DL/I call (GU, GHU, GN, GHN, ISRT, DLET, REPL, or any CBLTDLI-based call) specifically against this PCB. This PCB has no literal name in the source that spells it out directly -- programs bind to it positionally through the PSB's PCB order, and build the PCB mask from the generic IMMDBPCB copybook (COPY IMMDBPCB REPLACING ==(DBDNME)== BY ==...==) using an arbitrary replacement name that is NOT 'IMMMBRDB'. Do not include: (a) paragraphs that only declare a PCB mask without ever issuing a DL/I call against it, (b) paragraphs whose DL/I calls target a different PCB/database built from the same generic IMMDBPCB copybook.",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "Exact number of distinct paragraphs found performing a DL/I call against this specific PCB."
+        },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Distinct paragraph names (format 'File.COB::PARAGRAPH-NAME') performing a DL/I call against this specific PCB."
+        },
+        "justification": {
+          "type": "string",
+          "description": "How the PSB/PCB positional binding was resolved (which PSB, which PCB position, which copybook expansion) and which files were inspected as evidence."
+        }
+      },
+      "required": [
+        "count",
+        "paragraphs",
+        "justification"
+      ]
+    },
+    "expected": {
+      "count": 65
+    },
+    "notes": "Strongest case found in this project so far: a literal grep for CAST's own synthesized object name for this PCB ('IMM0038-03-IMMMBRDB-AP') returns ZERO hits anywhere in the source (confirmed 2026-08-27) -- that string never appears as text, it's derived from the PCB's position within the PSB, which a COBOL program binds to only positionally via its DL/I ENTRY linkage, not by name. Independently verified the underlying mechanism by direct source read: IMS/PSB/IMM0038.PSB declares 'PCB TYPE=DB,DBDNAME=IMMMBRDB,KEYLEN=27,PROCOPT=AP' as the 3rd PCB entry (no PCB index number appears in the PSB text either); COBOL/PROGRAMS/IMM0038.COB (lines ~2810-2834) builds multiple PCB masks from the same generic COBOL/COPYBOOKS/IMMDBPCB.CPY copybook via COPY...REPLACING with names like IMMMBR2DB/IMMMBR3DB/IMMMBR4DB -- none of which spell IMMMBRDB. The expected count of 65 is CAST Imaging's own self-reported structural dependent count (from a CAST-Imaging-assisted exploration session, not independently re-derived here) -- by construction, independently reconstructing this exact count via grep/text search is not practically feasible, which is the entire point of this question. The full list of 65 paragraph names has NOT been captured yet, so score-results.py can currently only check 'count' (via count_correct), not the 'paragraphs' array (acc/noise will show as unscored/0 until the full list is added to 'expected')."
   }
 ]
