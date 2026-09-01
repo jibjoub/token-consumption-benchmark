@@ -280,7 +280,8 @@ param(
   [string]$Model = "",
   [string]$CastImagingAppName = "",
   [string]$BaseAllowedTools = "Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)",
-  [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Use them to answer this question rather than relying solely on reading the source code directly."
+  [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Rely solely on the CAST Imaging MCP server to answer this question -- do not read the source code directly.",
+  [string]$ForcePrefix = "Using only CAST Imaging MCP tools"
 )
 
 $ErrorActionPreference = "Stop"
@@ -391,7 +392,7 @@ try {
       }
 
       if ($condition -eq "with-forced") {
-        $promptText = "$promptText`n`n$ForceInstruction"
+        $promptText = "$ForcePrefix`n$promptText`n`n$ForceInstruction"
       }
 
       # Optional per-question JSON Schema (see header note "Structured
