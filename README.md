@@ -212,6 +212,36 @@ fully shut down). Edit the `-QuestionIds`/`-Conditions`/`-Runs` values inside
 task itself with `Get-ScheduledTask -TaskName CastBenchmarkHadesNightly` /
 `Disable-ScheduledTask` / `Unregister-ScheduledTask`.
 
+### Routing through a separate Claude account (optional, per-person)
+
+If this project's `claude -p` usage is eating into your personal account's
+quota, you can route it through a separate account (e.g. a company
+Team/Enterprise seat) instead, with zero manual account-switching once set
+up. This is per-person and NOT shared via git -- each contributor sets up
+their own.
+
+1. Copy [`run-benchmark-pro.ps1.example`](run-benchmark-pro.ps1.example) to
+   `run-benchmark-pro.ps1` (same folder) and edit the `CLAUDE_CONFIG_DIR`
+   path inside to whatever you like (e.g. `C:\Users\<you>\.claude-pro`).
+   This new file is gitignored on purpose -- it's personal, not portable to
+   anyone else cloning this repo.
+2. One-time, in your own PowerShell (OAuth needs a real browser, this step
+   can't be scripted):
+   ```powershell
+   $env:CLAUDE_CONFIG_DIR = "C:\Users\<you>\.claude-pro"
+   claude
+   /login
+   # choose your separate account, sign in in the browser, then exit
+   ```
+3. Done. [`run-benchmark-nightly.ps1`](run-benchmark-nightly.ps1) checks for
+   `run-benchmark-pro.ps1` automatically and routes through it if present --
+   nothing else to wire up. For a manual run, just call
+   `.\run-benchmark-pro.ps1` instead of `.\run-benchmark.ps1` with the same
+   arguments.
+
+Claude Desktop and claude.ai have entirely separate auth stores from the
+CLI's `CLAUDE_CONFIG_DIR` -- this has no effect on either of them.
+
 ## Files in this repo
 
 | File | Role |
@@ -220,6 +250,7 @@ task itself with `Get-ScheduledTask -TaskName CastBenchmarkHadesNightly` /
 | [`bench-questions-hades.json`](bench-questions-hades.json) | Question definitions + ground truth for the Hades extension (see above). |
 | [`run-benchmark.ps1`](run-benchmark.ps1) | Runner — drives `claude -p`, writes `results.jsonl`. |
 | [`run-benchmark-nightly.ps1`](run-benchmark-nightly.ps1) | Nightly wrapper (fixed args, per-run log, morning summary) registered as the `CastBenchmarkHadesNightly` Windows Scheduled Task. |
+| [`run-benchmark-pro.ps1.example`](run-benchmark-pro.ps1.example) | Template for routing this project's CLI calls through a separate Claude account (per-person, gitignored once copied). See "Routing through a separate Claude account" above. |
 | [`score-results.py`](score-results.py) | Automatic scoring against ground truth → `scores.jsonl`. |
 | [`analyze-results.py`](analyze-results.py) | Console summary table from `results.jsonl`. |
 | [`results.jsonl`](results.jsonl) | Append-only observation log (default model). |

@@ -13,6 +13,18 @@
 # questions: programs-directly-related-to-EMP-table,
 # impact-radius-immeieio -- or to retry impact-ims-pcb-immmbrdb's
 # with/with-forced conditions).
+#
+# Account routing (optional, per-person): if a run-benchmark-pro.ps1 exists
+# next to this file, it's used instead of calling run-benchmark.ps1 directly
+# -- that's a local, gitignored, per-person file that routes the CLI through
+# a separate Claude account (e.g. a company Team/Enterprise seat) instead of
+# whichever account the default `claude` CLI is logged into, so this
+# project's usage doesn't eat into a personal account's quota. See
+# run-benchmark-pro.ps1.example for the template and README.md's "Routing
+# through a separate Claude account" section for the one-time setup. If no
+# run-benchmark-pro.ps1 exists (e.g. a fresh clone that hasn't set one up
+# yet), this falls back to run-benchmark.ps1 directly with a warning --
+# nothing breaks, it just uses the default account.
 # ---------------------------------------------------------------------------
 
 $ErrorActionPreference = "Continue"
@@ -34,21 +46,30 @@ if (Test-Path $resultsFile) {
 
 "=== Nightly run started $(Get-Date) ===" | Tee-Object -FilePath $logFile -Append
 
-& .\run-benchmark.ps1 `
-    -RepoPath "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL" `
-    -AppName "hades" `
-    -QuestionsFile (Join-Path $repoPathScript "bench-questions-hades.json") `
-    -McpConfigPath (Join-Path $repoPathScript "cast.json") `
-    -Conditions without,with,with-forced `
-    -QuestionIds "calls-to-immdates" `
-    -Runs 2 *>> $logFile
+$benchParams = @{
+    RepoPath      = "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL"
+    AppName       = "hades"
+    QuestionsFile = (Join-Path $repoPathScript "bench-questions-hades.json")
+    McpConfigPath = (Join-Path $repoPathScript "cast.json")
+    Conditions    = @("without", "with", "with-forced")
+    QuestionIds   = @("calls-to-immdates")
+    Runs          = 2
+}
+
+$proWrapper = Join-Path $repoPathScript "run-benchmark-pro.ps1"
+if (Test-Path $proWrapper) {
+    "(routing through run-benchmark-pro.ps1 -- separate account)" | Tee-Object -FilePath $logFile -Append
+    & $proWrapper @benchParams *>> $logFile
+} else {
+    "(run-benchmark-pro.ps1 not found -- calling run-benchmark.ps1 directly, using the default account)" | Tee-Object -FilePath $logFile -Append
+    & (Join-Path $repoPathScript "run-benchmark.ps1") @benchParams *>> $logFile
+}
 
 "=== Nightly run finished $(Get-Date) ===" | Tee-Object -FilePath $logFile -Append
 
 # Quick morning summary: how many new rows landed tonight, how many are
 # dead-on-arrival due to login expiry or the account spend limit -- so
-# Ayoub can tell at a glance whether the night was productive without
-# having to grep results.jsonl himself.
+# the morning check is a single glance instead of a manual results.jsonl grep.
 if (Test-Path $resultsFile) {
     $allLines = Get-Content $resultsFile
     $newLines = $allLines | Select-Object -Skip $linesBefore
