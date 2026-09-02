@@ -37,7 +37,15 @@ param(
 # cutoff), it means tomorrow morning.
 if ($StopTime -lt (Get-Date)) { $StopTime = $StopTime.AddDays(1) }
 
-$repoPathScript = "C:\Users\ala\Claude\Projects\Orbit Planner\token-consumption-benchmark"
+# EDIT THIS -- the only per-person path in this file. Point it at your own
+# local checkout of the Hades source (the nested "hades-main\hades-main\COBOL"
+# folder, not the outer clone root). Everything else below resolves relative
+# to wherever this script itself lives, so it doesn't need editing per-person.
+$HadesSourcePath = "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL"
+
+# Portable: resolves to wherever THIS script physically lives, so it works
+# for anyone who clones the repo -- no per-person editing needed for this one.
+$repoPathScript = $PSScriptRoot
 $resultsFile    = Join-Path $repoPathScript "results.jsonl"
 $logDir         = Join-Path $repoPathScript "nightly-logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -62,7 +70,7 @@ while ((Get-Date) -lt $StopTime) {
     $condition = $conditions[$condIndex % $conditions.Count]
 
     $benchParams = @{
-        RepoPath      = "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL"
+        RepoPath      = $HadesSourcePath
         AppName       = "hades"
         QuestionsFile = (Join-Path $repoPathScript "bench-questions-hades.json")
         McpConfigPath = (Join-Path $repoPathScript "cast.json")
