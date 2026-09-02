@@ -1,0 +1,38 @@
+# run-benchmark-pro.ps1.example
+# ---------------------------------------------------------------------------
+# TEMPLATE -- copy this file to "run-benchmark-pro.ps1" (no ".example") in
+# the same folder and fill in your own values. run-benchmark-pro.ps1 is
+# gitignored on purpose: it hardcodes a personal account/config-dir path,
+# so each person on this project needs their own copy, not a shared one.
+#
+# What this is for: routing this project's `claude -p` calls through a
+# SEPARATE Claude account (e.g. a company Team/Enterprise seat) instead of
+# whichever account your default `claude` CLI is already logged into --
+# so this project's token usage doesn't eat into your personal account's
+# quota/limits, and you never have to manually log out/in to switch.
+#
+# How it works: the CLAUDE_CONFIG_DIR environment variable tells the
+# `claude` CLI where to read/write its OAuth credentials. Setting it here,
+# scoped to this script's own process, only affects `claude` calls made
+# downstream by run-benchmark.ps1 in THIS run. It does NOT touch Claude
+# Desktop, claude.ai in a browser, or any other terminal/session on your
+# machine -- those keep using whatever they're already logged into,
+# completely unaffected.
+#
+# ONE-TIME SETUP (do this yourself, once, in your own PowerShell -- OAuth
+# needs a real browser window, this can't be scripted):
+#
+#   $env:CLAUDE_CONFIG_DIR = "C:\Users\<you>\.claude-pro"   # pick any path
+#   claude
+#   /login
+#   # choose your separate account (e.g. "Claude for Teams or Enterprise"),
+#   # sign in in the browser, then exit once logged in -- the token persists
+#   # on disk at that path from then on, no need to repeat this.
+#
+# After that, run-benchmark-nightly.ps1 automatically picks up and uses
+# this file if it exists next to it (see the check near the top of that
+# script) -- nothing else to wire up.
+# ---------------------------------------------------------------------------
+
+$env:CLAUDE_CONFIG_DIR = "C:\Users\<you>\.claude-pro"
+& "$PSScriptRoot\run-benchmark.ps1" @args
