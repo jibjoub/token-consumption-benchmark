@@ -212,6 +212,37 @@ fully shut down). Edit the `-QuestionIds`/`-Conditions`/`-Runs` values inside
 task itself with `Get-ScheduledTask -TaskName CastBenchmarkHadesNightly` /
 `Disable-ScheduledTask` / `Unregister-ScheduledTask`.
 
+### Running continuously overnight (optional)
+
+[`run-benchmark-loop.ps1`](run-benchmark-loop.ps1) is an alternative to
+`run-benchmark-nightly.ps1` for soaking up as much of the account's usage
+window as possible instead of one small fixed batch. It runs ONE `claude`
+call at a time (`-Runs 1`), cycling through `without`/`with`/`with-forced`,
+and inspects the `results.jsonl` row that call just wrote immediately after
+it's written -- catching a limit hit on the very first affected line, even
+if it's the first call of the whole run (detection is purely on the
+`result` text, never on token/cost deltas, so a zero-token failure from the
+very start is caught just as reliably as one further in).
+
+Confirmed real failure message (from an actual logged row):
+```
+You've hit your monthly spend limit · raise it at claude.ai/settings/usage
+```
+When this is seen, the script reads THAT ROW'S OWN `timestamp` field, adds
+5 hours, and sleeps until that exact computed time before retrying the same
+condition -- rather than a generic/guessed backoff. `"Not logged in"` is
+handled separately: waiting can't fix an expired or missing login, so the
+loop stops with a clear message instead of retrying blindly. Gives up for
+the day after too many consecutive spend-limit cycles (`-MaxSpendLimitCycles`,
+default 6) rather than looping forever.
+
+The `CastBenchmarkHadesNightly` Windows Scheduled Task launches
+`run-benchmark-loop.ps1` daily at **18:00**, with a 14-hour execution limit
+(covers until ~08:00 the next morning) and the same `WakeToRun` /
+`StartWhenAvailable` settings as before. Default stop time inside the
+script is 07:00 -- pass `-StopTime` when invoking it manually for a
+different cutoff.
+
 ### Routing through a separate Claude account (optional, per-person)
 
 If this project's `claude -p` usage is eating into your personal account's
@@ -250,6 +281,7 @@ CLI's `CLAUDE_CONFIG_DIR` -- this has no effect on either of them.
 | [`bench-questions-hades.json`](bench-questions-hades.json) | Question definitions + ground truth for the Hades extension (see above). |
 | [`run-benchmark.ps1`](run-benchmark.ps1) | Runner — drives `claude -p`, writes `results.jsonl`. |
 | [`run-benchmark-nightly.ps1`](run-benchmark-nightly.ps1) | Nightly wrapper (fixed args, per-run log, morning summary) registered as the `CastBenchmarkHadesNightly` Windows Scheduled Task. |
+| [`run-benchmark-loop.ps1`](run-benchmark-loop.ps1) | Continuous runner: one run at a time, checks each row as it's written, sleeps until (row timestamp + 5h) on a spend-limit hit. See "Running continuously overnight" above. |
 | [`run-benchmark-pro.ps1.example`](run-benchmark-pro.ps1.example) | Template for routing this project's CLI calls through a separate Claude account (per-person, gitignored once copied). See "Routing through a separate Claude account" above. |
 | [`score-results.py`](score-results.py) | Automatic scoring against ground truth → `scores.jsonl`. |
 | [`analyze-results.py`](analyze-results.py) | Console summary table from `results.jsonl`. |
