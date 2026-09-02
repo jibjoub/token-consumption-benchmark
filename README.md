@@ -230,7 +230,12 @@ You've hit your monthly spend limit · raise it at claude.ai/settings/usage
 ```
 When this is seen, the script reads THAT ROW'S OWN `timestamp` field, adds
 5 hours, and sleeps until that exact computed time before retrying the same
-condition -- rather than a generic/guessed backoff. `"Not logged in"` is
+condition -- rather than a generic/guessed backoff. Either way (spend-limit
+wait, or a "Not logged in" stop), the failed row itself is also stripped
+from `results.jsonl` immediately -- it does not sit in the file while the
+loop waits or after it stops. `results.jsonl` only ever ends up containing
+genuine attempts; a spend-limit or login failure never pollutes the data
+that `score-results.py`/`analyze-results.py` read. `"Not logged in"` is
 handled separately: waiting can't fix an expired or missing login, so the
 loop stops with a clear message instead of retrying blindly. Gives up for
 the day after too many consecutive spend-limit cycles (`-MaxSpendLimitCycles`,

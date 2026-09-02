@@ -56,6 +56,20 @@ function Write-Log($msg) {
     "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $msg" | Tee-Object -FilePath $logFile -Append
 }
 
+# Strips the last line of results.jsonl -- used when that line is a failed
+# attempt (spend limit / not logged in) that must not persist as real data.
+function Remove-LastResultRow {
+    if (-not (Test-Path $resultsFile)) { return }
+    $allLinesNow = Get-Content $resultsFile
+    if ($allLinesNow.Count -le 1) {
+        Clear-Content $resultsFile
+        Write-Log "Stripped the failed row from results.jsonl (file now empty)."
+    } else {
+        $allLinesNow[0..($allLinesNow.Count - 2)] | Set-Content $resultsFile
+        Write-Log "Stripped the failed row from results.jsonl ($($allLinesNow.Count - 1) row(s) remain)."
+    }
+}
+
 Set-Location $repoPathScript
 
 $proWrapper   = Join-Path $repoPathScript "run-benchmark-pro.ps1"
@@ -108,6 +122,7 @@ while ((Get-Date) -lt $StopTime) {
     if ($resultText -match "spend limit") {
         $spendLimitCycles++
         Write-Log "Spend-limit line detected (row timestamp: $($row.timestamp)). Cycle $spendLimitCycles/$MaxSpendLimitCycles."
+        Remove-LastResultRow
 
         if ($spendLimitCycles -ge $MaxSpendLimitCycles) {
             Write-Log "Hit $MaxSpendLimitCycles spend-limit cycles -- stopping for tonight instead of continuing to wait/retry."
@@ -141,6 +156,7 @@ while ((Get-Date) -lt $StopTime) {
 
     if ($resultText -match "Not logged in") {
         Write-Log "'Not logged in' detected -- this needs a manual /login, waiting can't fix it. Stopping the loop rather than retrying blindly."
+        Remove-LastResultRow
         break
     }
 
