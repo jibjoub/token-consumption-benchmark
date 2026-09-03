@@ -30,7 +30,8 @@
 param(
     [datetime]$StopTime = (Get-Date -Hour 7 -Minute 0 -Second 0),
     [int]$PauseSecondsBetweenRuns = 10,
-    [int]$MaxSpendLimitCycles = 6
+    [int]$MaxSpendLimitCycles = 6,
+    [int]$MinSameConfigGapMinutes = 6
 )
 
 # If StopTime already passed today (e.g. launched at 18:00 for a 07:00
@@ -80,8 +81,36 @@ $conditions = @("without", "with", "with-forced")
 $condIndex = 0
 $spendLimitCycles = 0
 
+# Anti-cache-contamination: "with" and "with-forced" share the EXACT same
+# tool config (BaseAllowedTools + mcp__CASTImaging__*, same -McpConfigPath),
+# so back-to-back calls between them (or repeats of either) are eligible
+# for Anthropic's prompt cache to silently reuse the system-prompt/tool-
+# definition prefix across what are supposed to be fully independent runs
+# -- confirmed real behavior (5-minute default TTL, keyed by content hash,
+# not by session/--continue). "without" has its own, different tool config,
+# so it never shares a cache key with "with"/"with-forced". Concretely
+# observed in real results.jsonl data: a "with-forced" run 78s after a
+# "with" run had cache_creation_tokens crash from a normal ~100k-250k down
+# to 6720 -- a near-total cache hit, and a cost far below its usual range.
+# Fix: track the last call-start time PER tool-config class, and force at
+# least $MinSameConfigGapMinutes between two calls of the same class so the
+# cache has provably expired before the next one starts.
+$lastCallStart = @{ "without" = $null; "mcp" = $null }
+
 while ((Get-Date) -lt $StopTime) {
     $condition = $conditions[$condIndex % $conditions.Count]
+    $configClass = if ($condition -eq "without") { "without" } else { "mcp" }
+
+    if ($lastCallStart[$configClass]) {
+        $sinceLast = (Get-Date) - $lastCallStart[$configClass]
+        $minGap    = New-TimeSpan -Minutes $MinSameConfigGapMinutes
+        if ($sinceLast -lt $minGap) {
+            $extraWait = $minGap - $sinceLast
+            Write-Log "Anti-cache-contamination cooldown: last '$configClass'-class call started $([math]::Round($sinceLast.TotalSeconds))s ago, need >=$($MinSameConfigGapMinutes)min gap before this '$condition' run -- waiting $([math]::Round($extraWait.TotalSeconds))s more."
+            Start-Sleep -Seconds ([int][math]::Ceiling($extraWait.TotalSeconds))
+        }
+    }
+    $lastCallStart[$configClass] = Get-Date
 
     $benchParams = @{
         RepoPath      = $HadesSourcePath
