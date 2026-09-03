@@ -157,9 +157,25 @@ rule.
 |---|---|---|---|
 | `table-count` | Recipe's `table-count` | Direct SQL tables touched by program `IMM102S` | 9 tables |
 | `programs-directly-related-to-EMP-table` | Recipe's `pages-directly-related-to-PrivateMessage-table` | Programs directly touching table `EMP` | **58** programs (vs. Recipe's 8 pages -- the gap this is meant to widen) |
-| `calls-to-immdates` | Recipe's `calls-to-blogic-getrelatedarticle` (literal 1:1 mirror -- same question shape, "who calls this specific entry point") **and, for actual cross-app statistics, Recipe's `pages-directly-related-to-PrivateMessage-table`** (see note below) | Call sites for subprogram `IMMDATES` | **239** callers total, but only **11** via a literal `CALL 'IMMDATES'` -- the other 228 call it exclusively through a copybook-supplied field (`IMMDATES-PGM-NAME`, see `COPYBOOKS/IMMDATED.CPY`). A plain-text search for the literal call misses ~95% of real call sites -- this is the strongest single case in this project for showing CAST resolving something grep genuinely can't. |
+| `calls-to-immdates` | Recipe's `calls-to-blogic-getrelatedarticle` (literal 1:1 mirror -- same question shape, "who calls this specific entry point") **and, for actual cross-app statistics, Recipe's `pages-directly-related-to-PrivateMessage-table`** (see note below) | Call sites for subprogram `IMMDATES` | **244** callers total (corrected 2026-09-03 by independent Opus re-verification, see note below; was 239): only **11** via a literal `CALL 'IMMDATES'`, **232** via the copybook-supplied field `IMMDATES-PGM-NAME` (`COPYBOOKS/IMMDATED.CPY`), and **7** via a locally-declared `WS-IMMDATES` field that bypasses the copybook entirely (some programs use more than one mechanism, hence the overlap). A plain-text search for the literal call misses the vast majority of real call sites -- this is the strongest single case in this project for showing CAST resolving something grep genuinely can't. |
 | `impact-radius-immeieio` | Recipe's `impact-radius-blogic-getrelatedarticle` | Full footprint of subprogram `IMMEIEIO`: callers + its own tables | 6 calling programs, 3 tables (`IMM.DELTA`, `IMM.KEYS`, `SYSIBM.SYSDUMMY1`) |
 | `impact-ims-pcb-immmbrdb` | (new type, no Recipe mirror) | Paragraphs across the codebase that call DL/I against the 3rd PCB (`DBDNAME=IMMMBRDB`) of PSB `IMM0038` -- reached only through generic `IMMDBPCB` copybook indirection, with **no literal PCB name in source at all** (positional binding) | CAST-reported count: **65** paragraphs. Independently verified: the PSB structure (`IMS/PSB/IMM0038.PSB` ~L15-36) and the copybook indirection mechanism (`COBOL/PROGRAMS/IMM0038.COB` ~L2810-2834) are hand-confirmed; the full count/list of 65 is CAST-self-reported only and has not been independently reconstructed -- that gap is the point of the question. `expected.paragraphs` is not yet populated (only `expected.count`). |
+
+**Ground-truth correction for `calls-to-immdates` (2026-09-03):** the original
+239-caller count was derived by Sonnet reading the codebase. Ayoub had Opus
+independently re-derive it from scratch (three cross-checked passes: a
+continuation-aware CALL-verb parser, a binary-safe regex sweep, and a sweep
+on `USING ... IMMDATES-PARM` that ignores the call target entirely). Result:
+**244**, not 239 -- 5 programs were missing (`IMM0047`, `IMM0195`, `IMM0197`,
+`IMM750`, `IMMOADPR`), all calling through a third mechanism (a
+locally-declared `WS-IMMDATES` field) that the original pass didn't account
+for. Nothing in the original 239 was wrong -- every one of them is a real
+caller, just 5 short. `bench-questions-hades.json`'s `expected.count`/
+`expected.files` for this question and `scores-hades.jsonl` have been
+updated accordingly; re-scoring against the corrected ground truth also
+dropped Hades' noise on this question from ~2% to ~0% (some previously
+"false positive" calls turned out to be true positives once the missing 5
+were added back in).
 
 **Chosen cross-app comparison pair (2026-09-03):** `calls-to-immdates` (Hades)
 vs. `pages-directly-related-to-PrivateMessage-table` (Recipe) -- NOT the more
@@ -172,7 +188,8 @@ dependency graph doesn't distinguish between "what calls this subprogram" and
 "what references this table" -- both are just "what's directly related to
 this object" queries against the same underlying graph, so the object type
 (table vs. subprogram) doesn't make them a worse methodological match. Result
-so far: Hades runs acc ~98-99% / noise ~2% (clean); Recipe runs acc 100% but
+so far: Hades runs acc ~98-99% / noise ~0% (clean, after the ground-truth
+correction above); Recipe runs acc 100% but
 noise 81% (without) / 47% (with-forced) -- near-perfect recall but heavy
 false-positive rate, the opposite failure mode of Hades on the same task
 type. Worth digging into why "directly related to a table" invites so many
