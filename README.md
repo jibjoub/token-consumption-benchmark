@@ -224,21 +224,25 @@ if it's the first call of the whole run (detection is purely on the
 `result` text, never on token/cost deltas, so a zero-token failure from the
 very start is caught just as reliably as one further in).
 
-Confirmed real failure message (from an actual logged row):
+Confirmed real failure messages (from actual logged rows) -- there are two
+shapes, and both are handled:
 ```
-You've hit your monthly spend limit · raise it at claude.ai/settings/usage
+You've hit your session limit · resets 3:10am (America/New_York)
+You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message · your session limit resets 2pm (America/New_York)
 ```
-When this is seen, the script reads THAT ROW'S OWN `timestamp` field, adds
-5 hours, and sleeps until that exact computed time before retrying the same
-condition -- rather than a generic/guessed backoff. Either way (spend-limit
-wait, or a "Not logged in" stop), the failed row itself is also stripped
-from `results.jsonl` immediately -- it does not sit in the file while the
-loop waits or after it stops. `results.jsonl` only ever ends up containing
-genuine attempts; a spend-limit or login failure never pollutes the data
-that `score-results.py`/`analyze-results.py` read. `"Not logged in"` is
+Whenever the message contains a `resets HH:MM(am/pm) (Timezone)` clause
+(both shapes above do), the script parses THAT EXACT time out of the
+message and resumes then -- this is Anthropic's own stated reset time, not
+a guess. Only when a message has no such clause (a bare monthly-spend-limit
+message with nothing else) does it fall back to the older heuristic: that
+row's own `timestamp` field + 5 hours. Either way, the failed row itself is
+also stripped from `results.jsonl` immediately -- it does not sit in the
+file while the loop waits or after it stops. `results.jsonl` only ever ends
+up containing genuine attempts; a limit or login failure never pollutes the
+data that `score-results.py`/`analyze-results.py` read. `"Not logged in"` is
 handled separately: waiting can't fix an expired or missing login, so the
 loop stops with a clear message instead of retrying blindly. Gives up for
-the day after too many consecutive spend-limit cycles (`-MaxSpendLimitCycles`,
+the day after too many consecutive limit cycles (`-MaxSpendLimitCycles`,
 default 6) rather than looping forever.
 
 The `CastBenchmarkHadesNightly` Windows Scheduled Task launches

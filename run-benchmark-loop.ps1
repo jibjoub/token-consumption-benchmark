@@ -148,27 +148,60 @@ while ((Get-Date) -lt $StopTime) {
 
     $resultText = [string]$row.result
 
-    if ($resultText -match "spend limit") {
+    if ($resultText -match "spend limit|session limit") {
         $spendLimitCycles++
-        Write-Log "Spend-limit line detected (row timestamp: $($row.timestamp)). Cycle $spendLimitCycles/$MaxSpendLimitCycles."
+        Write-Log "Usage-limit line detected (row timestamp: $($row.timestamp)). Cycle $spendLimitCycles/$MaxSpendLimitCycles. Raw: $resultText"
         Remove-LastResultRow
 
         if ($spendLimitCycles -ge $MaxSpendLimitCycles) {
-            Write-Log "Hit $MaxSpendLimitCycles spend-limit cycles -- stopping for tonight instead of continuing to wait/retry."
+            Write-Log "Hit $MaxSpendLimitCycles usage-limit cycles -- stopping for tonight instead of continuing to wait/retry."
             break
         }
 
-        try {
-            $rowTime  = [datetimeoffset]::Parse($row.timestamp)
-            $resumeAt = $rowTime.AddHours(5)
-            $waitSpan = $resumeAt - [datetimeoffset]::Now
-        } catch {
-            Write-Log "Could not parse this row's timestamp ('$($row.timestamp)') -- falling back to a flat 5h wait from now."
-            $waitSpan = New-TimeSpan -Hours 5
+        # Prefer the EXACT reset time embedded in the message itself over a
+        # guess. Real observed shapes:
+        #   "...your session limit resets 2pm (America/New_York)"
+        #   "You've hit your session limit ... resets 3:10am (America/New_York)"
+        # Anthropic tells us exactly when it resets, so parse that instead of
+        # assuming +5h. Falls back to row timestamp + 5h only if this clause
+        # isn't present (e.g. a bare monthly-spend-limit message with no
+        # reset clause at all).
+        $resumeAt = $null
+        if ($resultText -match "resets\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*\(([^)]+)\)") {
+            $rHour = [int]$matches[1]
+            $rMin  = if ($matches[2]) { [int]$matches[2] } else { 0 }
+            $rAmPm = $matches[3].ToLower()
+            $rTz   = $matches[4]
+            if ($rAmPm -eq "pm" -and $rHour -ne 12) { $rHour += 12 }
+            if ($rAmPm -eq "am" -and $rHour -eq 12) { $rHour = 0 }
+            try {
+                $tzInfo     = [System.TimeZoneInfo]::FindSystemTimeZoneById($rTz)
+                $utcNow     = [DateTime]::UtcNow
+                $nowInTz    = [System.TimeZoneInfo]::ConvertTimeFromUtc($utcNow, $tzInfo)
+                $resetLocal = New-Object DateTime($nowInTz.Year, $nowInTz.Month, $nowInTz.Day, $rHour, $rMin, 0)
+                if ($resetLocal -le $nowInTz) { $resetLocal = $resetLocal.AddDays(1) }
+                $resetUtc = [System.TimeZoneInfo]::ConvertTimeToUtc($resetLocal, $tzInfo)
+                $resumeAt = [datetimeoffset]$resetUtc
+                Write-Log ("Parsed exact reset time from the message: {0:D2}:{1:D2} ({2}) -> resume at {3} (UTC)." -f $rHour, $rMin, $rTz, $resumeAt)
+            } catch {
+                Write-Log "Found a 'resets HH:MM(am/pm) (Timezone)' clause but could not resolve timezone '$rTz' ($($_.Exception.Message)) -- falling back to timestamp+5h."
+            }
         }
 
+        if (-not $resumeAt) {
+            try {
+                $rowTime  = [datetimeoffset]::Parse($row.timestamp)
+                $resumeAt = $rowTime.AddHours(5)
+            } catch {
+                Write-Log "Could not parse this row's timestamp ('$($row.timestamp)') -- falling back to a flat 5h wait from now."
+                $resumeAt = [datetimeoffset]::Now.AddHours(5)
+            }
+        }
+
+        $waitSpan = $resumeAt - [datetimeoffset]::Now
+
         if ($waitSpan.TotalSeconds -le 0) {
-            Write-Log "Computed resume time is already in the past (row timestamp + 5h = $resumeAt) -- retrying almost immediately (short 60s pause) instead of sleeping negative time."
+            Write-Log "Computed resume time is already in the past (resume at = $resumeAt) -- retrying almost immediately (short 60s pause) instead of sleeping negative time."
             Start-Sleep -Seconds 60
         } else {
             $remaining = $StopTime - (Get-Date)
