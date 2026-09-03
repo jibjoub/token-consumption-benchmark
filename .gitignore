@@ -1,10 +1,6 @@
 # Ayoub's local account-routing wrapper (hardcodes his own CLAUDE_CONFIG_DIR
 # path + account) -- not portable to JB or anyone else cloning this repo.
 run-benchmark-pro.ps1
-<<<<<<< HEAD
-run-benchmark-loop.ps1
-=======
->>>>>>> 9366cd469226da02624ab52d80c69cd1660022db
 
 # Nightly automation logs -- local run history, not shared project data.
 nightly-logs/
