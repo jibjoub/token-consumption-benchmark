@@ -224,16 +224,25 @@ if it's the first call of the whole run (detection is purely on the
 `result` text, never on token/cost deltas, so a zero-token failure from the
 very start is caught just as reliably as one further in).
 
-Confirmed real failure message (from an actual logged row):
+Confirmed real failure messages (from actual logged rows) -- there are two
+shapes, and both are handled:
 ```
-You've hit your monthly spend limit · raise it at claude.ai/settings/usage
+You've hit your session limit · resets 3:10am (America/New_York)
+You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message · your session limit resets 2pm (America/New_York)
 ```
-When this is seen, the script reads THAT ROW'S OWN `timestamp` field, adds
-5 hours, and sleeps until that exact computed time before retrying the same
-condition -- rather than a generic/guessed backoff. `"Not logged in"` is
+Whenever the message contains a `resets HH:MM(am/pm) (Timezone)` clause
+(both shapes above do), the script parses THAT EXACT time out of the
+message and resumes then -- this is Anthropic's own stated reset time, not
+a guess. Only when a message has no such clause (a bare monthly-spend-limit
+message with nothing else) does it fall back to the older heuristic: that
+row's own `timestamp` field + 5 hours. Either way, the failed row itself is
+also stripped from `results.jsonl` immediately -- it does not sit in the
+file while the loop waits or after it stops. `results.jsonl` only ever ends
+up containing genuine attempts; a limit or login failure never pollutes the
+data that `score-results.py`/`analyze-results.py` read. `"Not logged in"` is
 handled separately: waiting can't fix an expired or missing login, so the
 loop stops with a clear message instead of retrying blindly. Gives up for
-the day after too many consecutive spend-limit cycles (`-MaxSpendLimitCycles`,
+the day after too many consecutive limit cycles (`-MaxSpendLimitCycles`,
 default 6) rather than looping forever.
 
 The `CastBenchmarkHadesNightly` Windows Scheduled Task launches
@@ -242,6 +251,23 @@ The `CastBenchmarkHadesNightly` Windows Scheduled Task launches
 `StartWhenAvailable` settings as before. Default stop time inside the
 script is 07:00 -- pass `-StopTime` when invoking it manually for a
 different cutoff.
+
+**Anti-cache-contamination cooldown.** `with` and `with-forced` load the
+exact same tool config (base tools + `mcp__CASTImaging__*`, same
+`-McpConfigPath`), so two calls sharing that config running close together
+are eligible for Anthropic's prompt cache to reuse the system-prompt/tool-
+definition prefix across what are supposed to be fully independent runs --
+this is documented, expected API behavior (cache is keyed by content hash,
+not by session/`--continue`, default TTL 5 minutes) and was confirmed in
+real logged data: a `with-forced` run 78 seconds after a `with` run showed
+`cache_creation_tokens` collapse from its usual ~100k-250k down to 6720,
+with a cost far below normal. `without` uses a different tool config
+entirely, so it never shares a cache key with `with`/`with-forced`. The
+loop now tracks the last call-start time per tool-config class (`without`
+vs. the shared `with`/`with-forced` class) and enforces a minimum gap
+(`-MinSameConfigGapMinutes`, default 6) before starting another call in the
+same class -- guaranteeing the cache has expired, so cost is never
+influenced by which run happened to precede it.
 
 ### Routing through a separate Claude account (optional, per-person)
 
