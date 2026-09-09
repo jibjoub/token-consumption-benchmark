@@ -101,13 +101,24 @@ Usage
   .\run-benchmark.ps1 -RepoPath ... -AppName recipe `
       -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10
 
+  # Same run, but also hand Claude a written guide to the CAST Imaging
+  # tools on every "with"/"with-forced" call (see "CAST Imaging usage
+  # guide" below) -- compare this results file against a run of the same
+  # question/condition WITHOUT -McpContextFile to see whether the guide
+  # actually changes cost/accuracy or just adds overhead:
+  .\run-benchmark.ps1 -RepoPath ... -AppName recipe `
+      -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10 `
+      -McpContextFile .\cast-imaging-mcp-guide.md
+
 Output
   Appends one JSON object per run to -ResultsFile (JSONL, default
   .\results.jsonl next to this script). Fields: app, question_id, condition,
   run_index, cost_usd, num_turns, token breakdown, the raw result text, and
   an empty "correct" field for you to hand-fill (true/false) after reading
   the result against the ground truth -- analyze-results.py picks that up
-  automatically if present.
+  automatically if present. Also used_mcp_context / mcp_context_file (see
+  "CAST Imaging usage guide" below) and cast_imaging_app_name (see "CAST
+  Imaging application name" below).
 
   Also records tools_used (every tool name Claude actually called, built-in
   or MCP) and used_mcp_tool (true only if one of those names matches
@@ -266,6 +277,46 @@ CAST Imaging application name (-CastImagingAppName)
   record.cast_imaging_app_name ($null when unset) so a scored row is
   self-documenting about which CAST application it targeted, the same way
   record.model documents which model ran it.
+
+CAST Imaging usage guide (-McpContextFile)
+  Empty by default -- nothing is appended to the system prompt and
+  behavior is unchanged from before this parameter existed. Point it at a
+  markdown file that explains how to actually use the CAST Imaging MCP
+  tools well (which get_*_syntax / run_*_function pair to reach for, when
+  a plain object_details/object_callers_callees lookup beats a
+  run_cypher_query, etc. -- see cast-imaging-mcp-guide.md in this repo for
+  a starting version) and it gets loaded via `--append-system-prompt-file`
+  on every call for a condition that loads CAST ("with"/"with-forced").
+  "without" runs never see it -- there's no CAST to explain in the first
+  place -- and a "with" run's system prompt is otherwise identical whether
+  or not this is set, other than that one appended block.
+
+  Why a flag instead of always-on: this benchmark's whole point is
+  isolating what changes cost/accuracy, one variable at a time. Whether
+  Claude gets a hand-written usage guide alongside CAST's tools is exactly
+  that kind of variable -- run the same question/condition/repo with and
+  without -McpContextFile and the two result sets are directly
+  comparable, the same way -Conditions without/with/with-forced already
+  are. Baking the guide permanently into every "with" run would remove
+  the ability to measure whether it actually helps (or just adds token
+  overhead for no accuracy gain).
+
+  Every record logs record.used_mcp_context (bool -- true only when this
+  run actually appended the file, i.e. -McpContextFile was set AND the
+  condition loads CAST) and record.mcp_context_file (the path, or $null)
+  -- the same self-documenting pattern as record.cast_imaging_app_name,
+  so a row never depends on remembering which flags a run was launched
+  with.
+
+  If the path doesn't exist, this throws before any `claude` call is
+  made, same as a bad -McpConfigPath does. A relative value (e.g.
+  ".\cast-imaging-mcp-guide.md") is resolved against the directory this
+  script was INVOKED from, not -RepoPath -- resolved once, up front,
+  before Push-Location switches the working directory, so it stays
+  correct no matter what -RepoPath points at. Requires a Claude Code CLI
+  build that supports `--append-system-prompt-file` -- if yours doesn't,
+  the `claude` call itself will fail with "unknown option" the first time
+  a "with"/"with-forced" run tries to use this flag.
 #>
 
 param(
@@ -279,6 +330,7 @@ param(
   [string[]]$QuestionIds = @(),
   [string]$Model = "",
   [string]$CastImagingAppName = "",
+  [string]$McpContextFile = "",
   [string]$BaseAllowedTools = "Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)",
   [string]$ForceInstruction = "You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Rely solely on the CAST Imaging MCP server to answer this question -- do not read the source code directly.",
   [string]$ForcePrefix = "Using only CAST Imaging MCP tools"
@@ -318,6 +370,24 @@ $env:ENABLE_TOOL_SEARCH = "false"
 
 if (-not (Test-Path $RepoPath))      { throw "RepoPath not found: $RepoPath" }
 if (-not (Test-Path $QuestionsFile)) { throw "QuestionsFile not found: $QuestionsFile" }
+if ($McpContextFile -and -not (Test-Path $McpContextFile)) { throw "McpContextFile not found: $McpContextFile" }
+
+# Resolve every path still USED after Push-Location switches the working
+# directory to $RepoPath (below) into an absolute path now, while $PWD is
+# still wherever this script was invoked from. Otherwise a relative value
+# -- the natural way to type -McpContextFile or -McpConfigPath, e.g.
+# ".\cast-imaging-mcp-guide.md" -- passes the existence check above (still
+# checked against the invocation directory) but then gets handed to
+# `claude` from inside $RepoPath once the loop runs, silently resolving
+# against the TARGET REPO instead. Confirmed by hand: this is exactly what
+# produced "Append system prompt file not found:
+# ...\hades-main\hades-main\cast-imaging-mcp-guide.md" -- the file was
+# real, just resolved from the wrong directory. GetFullPath (not
+# Resolve-Path) so this also covers -ResultsFile, which is allowed not to
+# exist yet.
+if ($McpContextFile) { $McpContextFile = [System.IO.Path]::GetFullPath($McpContextFile) }
+if ($McpConfigPath)  { $McpConfigPath  = [System.IO.Path]::GetFullPath($McpConfigPath) }
+$ResultsFile = [System.IO.Path]::GetFullPath($ResultsFile)
 
 $questions = Get-Content $QuestionsFile -Raw | ConvertFrom-Json
 
@@ -370,10 +440,17 @@ try {
 
       $allowedTools = $BaseAllowedTools
       $mcpArgs = @()
+      # Only true when this condition actually loads CAST AND -McpContextFile
+      # was set -- see header note "CAST Imaging usage guide" above. Kept as
+      # its own flag (rather than just checking $McpContextFile again at the
+      # point of use) so record.used_mcp_context below can't drift from what
+      # actually happened this iteration.
+      $useMcpContext = $false
       if ($usesMcp) {
         if (-not (Test-Path $McpConfigPath)) { throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition)" }
         $allowedTools += ",mcp__CASTImaging__*"
         $mcpArgs = @("--mcp-config", $McpConfigPath)
+        if ($McpContextFile) { $useMcpContext = $true }
       }
 
       # Same base prompt for every condition; "with-forced" only appends the
@@ -418,6 +495,14 @@ try {
 
         if ($jsonSchemaArg) {
           $claudeArgs += @("--json-schema", $jsonSchemaArg)
+        }
+
+        # See header note "CAST Imaging usage guide" above: appended after
+        # --mcp-config so the file only ever reaches a call that also has
+        # CAST's tools loaded -- a "without" run's $useMcpContext is always
+        # $false, so this block never fires for it.
+        if ($useMcpContext) {
+          $claudeArgs += @("--append-system-prompt-file", $McpContextFile)
         }
 
         # Empty by default (leaves claude on whatever model the CLI/
@@ -468,6 +553,8 @@ try {
           run_index        = $i
           model            = if ($Model) { $Model } else { "default" }
           cast_imaging_app_name = if ($usesMcp -and $CastImagingAppName) { $CastImagingAppName } else { $null }
+          used_mcp_context = $useMcpContext
+          mcp_context_file = if ($useMcpContext) { $McpContextFile } else { $null }
           used_json_schema = [bool]$jsonSchemaArg
           correct          = $null   # fill in true/false by hand after reading 'result'
         }

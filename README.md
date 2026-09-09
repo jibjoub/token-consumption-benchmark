@@ -42,7 +42,7 @@ Three conditions:
 
 `with` and `without` are the default (`-Conditions without,with`); add `with-forced` explicitly when needed. Keep all three around rather than picking one — real runs have shown `with` calling CAST anywhere from 3/5 to 5/5 times on an identical prompt, so "available" ≠ "used", and `with-forced` isolates "how good is CAST's answer" from "does Claude bother reaching for it".
 
-Each result record includes: `cost_usd`, `num_turns`, `input_tokens`/`output_tokens`/`cache_creation_tokens`/`cache_read_tokens`, `model_usage` (per-model cost breakdown), `tools_used` (every tool actually called), `used_mcp_tool` (true iff a `mcp__CASTImaging__*` tool was called), `structured_output` (when the question used `json_schema`), the raw `result` text, `session_id`, and an empty `correct` field for manual grading of free-text questions.
+Each result record includes: `cost_usd`, `num_turns`, `input_tokens`/`output_tokens`/`cache_creation_tokens`/`cache_read_tokens`, `model_usage` (per-model cost breakdown), `tools_used` (every tool actually called), `used_mcp_tool` (true iff a `mcp__CASTImaging__*` tool was called), `used_mcp_context`/`mcp_context_file` (whether `-McpContextFile` was applied to this run, see below), `structured_output` (when the question used `json_schema`), the raw `result` text, `session_id`, and an empty `correct` field for manual grading of free-text questions.
 
 ### 3. [`score-results.py`](score-results.py) — automatic scoring
 For any question that has both an `expected` field and a `structured_output` result, joins `results.jsonl` against `bench-questions.json` and computes, per run:
@@ -103,6 +103,13 @@ python analyze-results.py results.jsonl
 # (this is NOT the same as -AppName -- see "Parameters" below)
 .\run-benchmark.ps1 -RepoPath ... -AppName recipe `
     -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10
+
+# Also hand Claude a written usage guide for the CAST Imaging tools on
+# every "with"/"with-forced" call, to measure whether it helps
+# (see "CAST Imaging usage guide" below):
+.\run-benchmark.ps1 -RepoPath ... -AppName recipe `
+    -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10 `
+    -McpContextFile .\cast-imaging-mcp-guide.md
 ```
 
 Then, after the run(s):
@@ -128,6 +135,7 @@ For free-text questions (no `expected`/`json_schema`), open `results.jsonl`, rea
 | `-QuestionIds` | *(all)* | Restrict to specific question ids. |
 | `-Model` | *(CLI default)* | Claude Code model alias/ID (`haiku`, `sonnet`, `opus`, or a dated ID). Verify it resolves first with a throwaway `claude --model haiku -p "hi"`. |
 | `-CastImagingAppName` | *(none)* | Application name **inside CAST Imaging itself** to search — distinct from `-AppName`, which is just this script's own label. Only injected into the prompt on `with`/`with-forced` runs. |
+| `-McpContextFile` | *(none, off)* | Path to a markdown usage guide for the CAST Imaging tools (see [`cast-imaging-mcp-guide.md`](cast-imaging-mcp-guide.md)), loaded via `--append-system-prompt-file` on `with`/`with-forced` runs only. A toggle, not always-on — leave unset to keep results directly comparable to a run without it. Requires a `claude` CLI build that supports `--append-system-prompt-file`. |
 | `-BaseAllowedTools` | `Read,Grep,Glob,Bash(git *),Bash(ls *),Bash(find *)` | Tool allowlist. Read-only by design — no `Edit`/`Write`, so Claude cannot modify the target repo. `mcp__CASTImaging__*` is added automatically for `with`/`with-forced`. |
 | `-ForceInstruction` | *(built-in text)* | Instruction appended verbatim to the question prompt on `with-forced` runs. |
 
@@ -315,6 +323,7 @@ CLI's `CLAUDE_CONFIG_DIR` -- this has no effect on either of them.
 | [`results-haiku.jsonl`](results-haiku.jsonl) | Same, for a dedicated Haiku run. |
 | [`scores.jsonl`](scores.jsonl) | Derived, recomputable scoring output. |
 | [`cast.json`](cast.json) | Sample CAST Imaging MCP config (`--mcp-config`) for the target repo. |
+| [`cast-imaging-mcp-guide.md`](cast-imaging-mcp-guide.md) | Usage guide for the CAST Imaging MCP tools, optionally injected via `-McpContextFile` — reverse-engineered from real tool calls in `results.jsonl`, not CAST's own API docs. Meant to be corrected/extended, not treated as final. |
 | [`cast_force_test.json`](cast_force_test.json) / [`extract.json`](extract.json) | Ad hoc sample outputs from earlier manual test runs (not consumed by the pipeline). |
 
 ## ⚠️ Security note

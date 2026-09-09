@@ -507,5 +507,40 @@
       "count": 65
     },
     "notes": "Strongest case found in this project so far: a literal grep for CAST's own synthesized object name for this PCB ('IMM0038-03-IMMMBRDB-AP') returns ZERO hits anywhere in the source (confirmed 2026-08-27) -- that string never appears as text, it's derived from the PCB's position within the PSB, which a COBOL program binds to only positionally via its DL/I ENTRY linkage, not by name. Independently verified the underlying mechanism by direct source read: IMS/PSB/IMM0038.PSB declares 'PCB TYPE=DB,DBDNAME=IMMMBRDB,KEYLEN=27,PROCOPT=AP' as the 3rd PCB entry (no PCB index number appears in the PSB text either); COBOL/PROGRAMS/IMM0038.COB (lines ~2810-2834) builds multiple PCB masks from the same generic COBOL/COPYBOOKS/IMMDBPCB.CPY copybook via COPY...REPLACING with names like IMMMBR2DB/IMMMBR3DB/IMMMBR4DB -- none of which spell IMMMBRDB. The expected count of 65 is CAST Imaging's own self-reported structural dependent count (from a CAST-Imaging-assisted exploration session, not independently re-derived here) -- by construction, independently reconstructing this exact count via grep/text search is not practically feasible, which is the entire point of this question. The full list of 65 paragraph names has NOT been captured yet, so score-results.py can currently only check 'count' (via count_correct), not the 'paragraphs' array (acc/noise will show as unscored/0 until the full list is added to 'expected')."
+  },
+  {
+    "id": "impact-ims-db-segment-on-jcl-jobs",
+    "prompt": "I want to modify the IMS DB Segment named WK2DETL1, please find all the impacted JCL jobs that can be impacted",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "description": "Exact number of distinct JCL jobs found that are impacted by changes to the IMS DB Segment WK2DETL1."
+        },
+        "JCL-jobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Distinct JCL job names (format 'JOBLIB::JOB-NAME') that are impacted by changes to the IMS DB Segment WK2DETL1."
+        },
+        "justification": {
+          "type": "string",
+          "description": "How the links between the IMS DB Segment WK2DETL1 and the JCL jobs were determined, including any analysis of job steps, program calls, and data dependencies."
+        }
+      },
+      "required": [
+        "count",
+        "JCL jobs",
+        "justification"
+      ]
+    },
+    "expected": {
+      "count": 4,
+      "JCL jobs": [],
+      "justification": ""
+    },
+    "notes": ""
   }
 ]
