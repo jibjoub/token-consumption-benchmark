@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codebase Size vs. Accuracy &amp; Cost — CAST Imaging MCP Benchmark</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:            #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --card-bg:         #ffffff;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --gridline:        #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --hades:           #2a78d6;
+    --hades-wash:      rgba(42,120,214,0.08);
+    --recipe:          #eb6834;
+    --recipe-wash:     rgba(235,104,52,0.08);
+    --good:            #0ca30c;
+    --tldr-bg:         #eef4fc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --card-bg:        #242422;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --hades:          #3987e5;
+      --hades-wash:     rgba(57,135,229,0.14);
+      --recipe:         #d95926;
+      --recipe-wash:    rgba(217,89,38,0.14);
+      --good:           #0ca30c;
+      --tldr-bg:        #17263a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0 20px 64px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  header.hero {
+    padding: 48px 0 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .kicker {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 32px;
+    line-height: 1.2;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 640px;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .meta-row {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  section { padding: 40px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  h2 {
+    font-size: 21px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 15px;
+    margin: 0 0 4px;
+  }
+  .section-lede {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 24px;
+    max-width: 680px;
+    line-height: 1.55;
+  }
+  p { line-height: 1.6; color: var(--text-secondary); font-size: 14.5px; }
+  strong { color: var(--text-primary); }
+  code {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.92em;
+  }
+
+  /* TL;DR */
+  .tldr-banner {
+    background: var(--tldr-bg);
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    font-size: 15.5px;
+    color: var(--text-primary);
+    line-height: 1.55;
+  }
+  .tldr-banner b { color: var(--hades); }
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .stat-tile {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+  .stat-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* Methodology */
+  .prompt-box {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 10px 0 16px;
+  }
+  .prompt-box .app-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .tag-hades { background: var(--hades-wash); color: var(--hades); }
+  .tag-recipe { background: var(--recipe-wash); color: var(--recipe); }
+  .prompt-box .qtext { font-size: 13.5px; color: var(--text-primary); font-style: italic; line-height: 1.55; }
+  .prompt-box .qmeta { font-size: 12.5px; color: var(--text-muted); margin-top: 8px; }
+
+  .callout {
+    border-left: 3px solid var(--hades);
+    background: var(--surface-1);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    margin-top: 16px;
+  }
+  .callout b { color: var(--text-primary); }
+
+  /* App size */
+  .size-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .size-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .size-card .app-tag { display:inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-bottom: 10px; }
+  .size-card .headline { font-size: 30px; font-weight: 650; letter-spacing: -0.01em; }
+  .size-card .headline-unit { font-size: 15px; color: var(--text-muted); font-weight: 500; margin-left: 4px; }
+  .size-card .detail { font-size: 13px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6; }
+  .ratio-bar-wrap { margin-top: 4px; }
+  .ratio-bar {
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    display: flex;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+  }
+  .ratio-bar .seg-recipe { background: var(--recipe); flex: 0 0 3.5%; }
+  .ratio-bar .seg-hades { background: var(--hades); flex: 1 1 auto; }
+  .ratio-caption { font-size: 12.5px; color: var(--text-muted); margin-top: 8px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary); }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .swatch-hades { background: var(--hades); }
+  .swatch-recipe { background: var(--recipe); }
+
+  /* Charts */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 18px;
+  }
+  .chart-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 18px 8px;
+  }
+  .chart-card h3 { margin-bottom: 2px; }
+  .chart-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .ytick, .xtick { fill: var(--text-muted); font-size: 10.5px; }
+  .barlabel { fill: var(--text-secondary); font-size: 10.5px; font-weight: 600; }
+  .bar { cursor: pointer; }
+  .s-hades { fill: var(--hades); }
+  .s-recipe { fill: var(--recipe); }
+  .foot-asterisk { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+  #tooltip {
+    position: absolute;
+    display: none;
+    background: var(--text-primary);
+    color: var(--page);
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 50;
+    white-space: nowrap;
+  }
+
+  /* Table */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 14px; white-space: nowrap; }
+  thead th {
+    background: var(--surface-1);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td { border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.app-cell { font-weight: 650; color: var(--text-primary); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; }
+  .table-foot { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.6; }
+
+  /* Findings */
+  .finding {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .finding .num {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--hades-wash);
+    color: var(--hades);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+    flex: none;
+  }
+  .finding h3 { margin-bottom: 5px; }
+  .finding p { margin: 0; }
+
+  /* Caveats */
+  .caveat-list { display: flex; flex-direction: column; gap: 12px; }
+  .caveat-item {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+  .caveat-item b { color: var(--text-primary); }
+
+  footer {
+    padding: 30px 0 10px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 720px) {
+    .stat-row, .size-grid, .chart-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">CAST Imaging MCP Benchmark · Internal</div>
+    <h1>Does a bigger codebase break AI code comprehension?</h1>
+    <p class="subtitle">A head-to-head read of the same "what's directly related to this object" query, run against a small ASP.NET app and a 28× larger COBOL mainframe — with and without the CAST Imaging MCP server.</p>
+    <div class="meta-row">Prepared for the NASA team · September 3, 2026 · Apps compared: <strong>Recipe</strong> (ASP.NET) vs. <strong>Hades</strong> (COBOL mainframe)</div>
+  </header>
+
+  <section id="tldr">
+    <div class="tldr-banner">
+      Scaling the codebase <b>28×</b> did not cost any recall — both apps land in the same 98–100% range. What size clearly hurt was <b>precision</b>: on the small app, <b>47–81%</b> of everything the model reported back was a false positive. On the mainframe, it was <b>~0%</b>. Token usage does climb with size, as expected; dollar cost is muddier and needs more data before it's a clean story (see caveats).
+    </div>
+    <div class="stat-row">
+      <div class="stat-tile">
+        <div class="stat-label">Codebase size gap</div>
+        <div class="stat-value">28×</div>
+        <div class="stat-sub">more lines of code in Hades than Recipe</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Recall gap between apps</div>
+        <div class="stat-value">~0–2 pts</div>
+        <div class="stat-sub">both apps stay in the 98–100% band</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Noise gap between apps</div>
+        <div class="stat-value">47–81 pts</div>
+        <div class="stat-sub">Recipe's false-positive rate, minus Hades' ~0%</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="method">
+    <h2>The comparison</h2>
+    <p class="section-lede">Both questions ask the same underlying thing — "what in this codebase directly touches object X?" — just aimed at a different kind of object. CAST Imaging's dependency graph doesn't distinguish a table from a subprogram: both are just nodes with direct edges, so the object type isn't a confound. What differs is scale, on both sides of the question: a much bigger codebase to search, <em>and</em> a much bigger ground-truth answer to find in full.</p>
+
+    <div class="prompt-box">
+      <span class="app-tag tag-hades">Hades · calls-to-immdates</span>
+      <div class="qtext">"I'm planning to change the internal behavior of the subprogram IMMDATES (the number and types of parameters stay identical, only the logic changes). List all calls in the code that specifically invoke this subprogram — including calls made indirectly through a variable or field that holds the program name at runtime, not only literal CALL 'IMMDATES' statements. For each call, specify the file and whether the call is literal or made through a named field."</div>
+      <div class="qmeta">Ground truth: <strong>244</strong> calling programs — independently re-verified by Opus (see note below); only 11 use a literal <code>CALL 'IMMDATES'</code>, the rest resolve through a copybook field or a locally-declared one.</div>
+    </div>
+
+    <div class="prompt-box">
+      <span class="app-tag tag-recipe">Recipe · pages-directly-related-to-PrivateMessage-table</span>
+      <div class="qtext">"I want to modify the PrivateMessage table. Count and list all the aspx pages that can be directly impacted by this change."</div>
+      <div class="qmeta">Ground truth: <strong>8</strong> aspx pages.</div>
+    </div>
+
+    <div class="callout">
+      <b>Ground-truth rigor:</b> the Hades answer (244) wasn't taken on faith. It was first derived by one model reading the codebase, then independently re-derived from scratch by a second model (Opus) in a separate pass. The recheck found a genuine 5-caller gap (239 → 244) — a third call mechanism the first pass hadn't searched for — and zero false positives in the original list. That gives real confidence in the ~0% noise reading below: it isn't an artifact of an incomplete answer key.
+    </div>
+  </section>
+
+  <section id="appsize">
+    <h2>App size, for scale</h2>
+    <p class="section-lede">Recipe is a compact ASP.NET web app. Hades is a mainframe telco/HR system: 676 COBOL programs, 635 copybooks, plus batch, CICS, IMS and JCL. Measured directly off both repositories:</p>
+
+    <div class="size-grid">
+      <div class="size-card">
+        <span class="app-tag tag-recipe">Recipe</span>
+        <div class="headline">39,358<span class="headline-unit">lines of code</span></div>
+        <div class="detail">378 source files (.cs / .aspx / .vb) · 627 files total in repo · ~1.7 MB of source</div>
+      </div>
+      <div class="size-card">
+        <span class="app-tag tag-hades">Hades</span>
+        <div class="headline">1,113,649<span class="headline-unit">lines of code</span></div>
+        <div class="detail">1,450 COBOL/copybook files · 1,460 files total in repo · ~57.7 MB of source</div>
+      </div>
+    </div>
+
+    <div class="ratio-bar-wrap">
+      <div class="ratio-bar"><div class="seg-recipe"></div><div class="seg-hades"></div></div>
+      <div class="ratio-caption"><span class="dot" style="background:var(--recipe)"></span>Recipe &nbsp;·&nbsp; <span class="dot" style="background:var(--hades)"></span>Hades — <strong>28.3× more lines of code</strong>, 3.8× more source files. The ground-truth answer set scales with it: 8 items to find in Recipe vs. 244 in Hades (30×).</div>
+    </div>
+  </section>
+
+  <section id="results">
+    <h2>Results, condition by condition</h2>
+    <p class="section-lede">Three conditions per app: <strong>without</strong> MCP tools at all, <strong>with</strong> the CAST Imaging MCP server available (model's choice whether to use it), and <strong>with-forced</strong> (the model is instructed to use it). Bars grouped by condition; hover any bar for the exact reading.</p>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch swatch-hades"></span>Hades (COBOL mainframe, 1.11M LOC)</div>
+      <div class="legend-item"><span class="swatch swatch-recipe"></span>Recipe (ASP.NET, 39K LOC)</div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Accuracy (recall)</h3>
+        <div class="chart-sub">Share of true callers/pages the model actually found</div>
+        <div id="chart-acc"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Noise (false-positive rate)</h3>
+        <div class="chart-sub">Share of reported items that were <em>wrong</em> — lower is better</div>
+        <div id="chart-noise"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Median cost per run</h3>
+        <div class="chart-sub">USD, per single benchmark call</div>
+        <div id="chart-cost"></div>
+        <div class="foot-asterisk">* with-forced figures may include cache-contaminated runs — see caveats</div>
+      </div>
+      <div class="chart-card">
+        <h3>Median tokens per run</h3>
+        <div class="chart-sub">Millions of tokens, input + output + cache</div>
+        <div id="chart-tokens"></div>
+        <div class="foot-asterisk">* with-forced figures may include cache-contaminated runs — see caveats</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="table">
+    <h2>Full numbers</h2>
+    <p class="section-lede">Everything the charts above are drawn from.</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>App</th>
+            <th>Condition</th>
+            <th>n runs</th>
+            <th>Median cost</th>
+            <th>Median tokens</th>
+            <th>Recall</th>
+            <th>Noise</th>
+            <th>Exact match†</th>
+            <th>MCP tool used‡</th>
+          </tr>
+        </thead>
+        <tbody id="results-table"></tbody>
+      </table>
+    </div>
+    <div class="table-foot">† Exact-match denominator is smaller than n for some rows — <code>score-results.py</code> currently auto-scores only one array field per question, so a subset of rows aren't eligible for a full exact-match check. Read exact-match as directional, not a strict subset of recall.<br>‡ "without" has no MCP tools available, so its rate is trivially 0/n — shown for completeness, not as a finding.</div>
+  </section>
+
+  <section id="findings">
+    <h2>What this says</h2>
+
+    <div class="finding">
+      <div class="num">1</div>
+      <div>
+        <h3>Recall barely moves with size — precision is where size shows up</h3>
+        <p>Both apps land in the same 98–100% recall band regardless of condition. The real gap is noise: Recipe's answers are 47–81% false positives on this question type, while Hades' are effectively clean (~0%) despite the codebase being 28× bigger and the answer set 30× larger. If anything, the bigger, more mechanically well-defined codebase produced <em>more</em> precise answers, not less.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="num">2</div>
+      <div>
+        <h3>Token usage scales with size; dollar cost doesn't (yet) tell a clean story</h3>
+        <p>Hades uses more tokens than Recipe in every single condition (2.19M–4.47M vs. 1.46M–2.10M) — a consistent, monotonic size signal. Raw dollar cost is noisier: Hades actually costs <em>less</em> than Recipe in the without/with conditions despite using more tokens (cache efficiency), and both apps' with-forced numbers carry a caching caveat (see below). Token volume is the more trustworthy size signal in this dataset; cost needs cleaner data before drawing a size-vs-cost conclusion.</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="num">3</div>
+      <div>
+        <h3>The MCP tool is used opportunistically, not automatically</h3>
+        <p>Even when available, the model reached for the CAST Imaging tool only 53% of the time on Hades and 32% on Recipe. Explicitly forcing it (with-forced) pushes usage to 65% on Hades and 75% on Recipe — never 100%. The model still sometimes falls back to reading the code directly, even under instruction to use the MCP tool — and on Hades specifically, a deeper look found that's often because the MCP server simply wasn't reachable in that session (see the caveat below).</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="num">4</div>
+      <div>
+        <h3>Precision, not correctness, is the strongest case for CAST Imaging so far</h3>
+        <p>Recall was already high without any special tooling on both apps. The gap this data actually shows is in noise — how much junk rides along with a correct-ish answer. That's arguably the more expensive failure mode in practice: a developer has to manually filter 47–81% false positives out of Recipe's answers, versus essentially none out of Hades'.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="caveats">
+    <h2>Read this before presenting it as settled</h2>
+    <div class="caveat-list">
+      <div class="caveat-item"><b>Single question pair, modest n.</b> This is one "directly related to X" question per app, 22–36 runs per condition. It's a real, consistent pattern — not yet a broad claim about all query types or all codebase sizes.</div>
+      <div class="caveat-item"><b>with-forced cost/tokens carry a caching caveat.</b> A prompt-cache isolation bug (fixed 2026-09-03) let back-to-back <code>with</code> → <code>with-forced</code> calls silently inherit a warm cache, deflating cost. Hades' with-forced numbers blend pre- and post-fix runs; Recipe's data predates the fix entirely. Recall and noise are unaffected by this (caching doesn't change what the model reports) — only cost/token comparisons involving with-forced should be read as directional.</div>
+      <div class="caveat-item"><b>Hades' with-forced median accuracy hides a real problem.</b> A separate deep-dive found that on 2026-09-01 the with-forced prompt was rewritten to forbid falling back to source code, and since then <strong>41.7% of with-forced runs return a hard empty answer</strong> (recall 0%) whenever the MCP server happens to be unreachable that session — a failure mode that doesn't exist in the <code>with</code> condition (which can still fall back). Because more than half of with-forced runs still succeed, the median accuracy/noise numbers above look unaffected — they aren't measuring what you'd assume. See the separate <code>hades-with-forced-prompt-change.html</code> report for the full breakdown.</div>
+      <div class="caveat-item"><b>Ground truth for Hades was corrected mid-project.</b> 239 → 244, via an independent second-model re-verification (see the callout above). No comparable independent recheck has been done yet for Recipe's 8-page answer or for Hades' other two questions with unverified ground truth (<code>impact-ims-pcb-immmbrdb</code>: 65, CAST-self-reported only; <code>programs-directly-related-to-EMP-table</code>: 58, no data collected yet).</div>
+      <div class="caveat-item"><b>One question shape.</b> "What's directly related to object X" is one of five Hades question types in this project. The other four (table-count, multi-hop impact radius, IMS/PCB paragraph resolution) aren't part of this comparison and may show a different size/accuracy/cost relationship.</div>
+    </div>
+  </section>
+
+  <footer>
+    CAST Imaging MCP token-consumption benchmark · <code>calls-to-immdates</code> (Hades) vs. <code>pages-directly-related-to-PrivateMessage-table</code> (Recipe) · generated 2026-09-03
+  </footer>
+
+</div>
+
+<script>
+  var DATA = {
+    categories: ['Without MCP', 'With MCP', 'With MCP (forced)'],
+    hades: {
+      key: 'hades', name: 'Hades',
+      n: [31, 30, 26],
+      cost: [1.71, 1.87, 2.21],
+      tokens: [2.19, 2.38, 4.47],
+      acc: [98, 98, 99],
+      noise: [0, 0, 0],
+      exact: ['5/31', '5/30', '3/26'],
+      mcp: ['0/31', '16/30', '17/26'],
+      caveat: [false, false, true]
+    },
+    recipe: {
+      key: 'recipe', name: 'Recipe',
+      n: [22, 22, 36],
+      cost: [1.99, 2.16, 0.53],
+      tokens: [1.46, 2.10, 0.70],
+      acc: [100, 100, 100],
+      noise: [81, 81, 47],
+      exact: ['1/15', '1/15', '9/29'],
+      mcp: ['0/22', '7/22', '27/36'],
+      caveat: [false, false, true]
+    }
+  };
+
+  function renderBarChart(containerId, valuesKey, opts) {
+    var container = document.getElementById(containerId);
+    var W = 400, H = 260;
+    var M = { top: 20, right: 10, bottom: 40, left: 40 };
+    var plotW = W - M.left - M.right;
+    var plotH = H - M.top - M.bottom;
+    var categories = DATA.categories;
+    var series = [DATA.hades, DATA.recipe];
+    var catW = plotW / categories.length;
+    var barW = 18, gap = 13;
+    var groupW = series.length * barW + (series.length - 1) * gap;
+    var groupPad = (catW - groupW) / 2;
+    var yMax = opts.yMax, ticks = opts.ticks, tickFmt = opts.tickFmt, labelFmt = opts.labelFmt;
+
+    function yScale(v) { return M.top + plotH - (v / yMax) * plotH; }
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">';
+
+    ticks.forEach(function (t) {
+      var y = yScale(t);
+      svg += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" class="gridline"/>';
+      svg += '<text x="' + (M.left - 7) + '" y="' + (y + 3.5) + '" class="ytick" text-anchor="end">' + tickFmt(t) + '</text>';
+    });
+    svg += '<line x1="' + M.left + '" y1="' + yScale(0) + '" x2="' + (W - M.right) + '" y2="' + yScale(0) + '" class="baseline"/>';
+
+    categories.forEach(function (cat, ci) {
+      var gx = M.left + ci * catW + groupPad;
+      series.forEach(function (s, si) {
+        var v = s[valuesKey][ci];
+        var x = gx + si * (barW + gap);
+        var y = yScale(v);
+        var h = yScale(0) - y;
+        var caveat = opts.caveatAware && s.caveat[ci];
+        var label = labelFmt(v) + (caveat ? '*' : '');
+        svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(h, 0.5) + '" rx="4" ry="4" class="bar s-' + s.key + '" data-cat="' + cat + '" data-series="' + s.name + '" data-value="' + label + '"></rect>';
+        svg += '<text x="' + (x + barW / 2) + '" y="' + (y - 6) + '" text-anchor="middle" class="barlabel">' + label + '</text>';
+      });
+      svg += '<text x="' + (gx + groupW / 2) + '" y="' + (H - M.bottom + 18) + '" text-anchor="middle" class="xtick">' + cat + '</text>';
+    });
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+  }
+
+  renderBarChart('chart-acc', 'acc', { yMax: 100, ticks: [0, 25, 50, 75, 100], tickFmt: function (t) { return t + '%'; }, labelFmt: function (v) { return v + '%'; }, caveatAware: false });
+  renderBarChart('chart-noise', 'noise', { yMax: 100, ticks: [0, 25, 50, 75, 100], tickFmt: function (t) { return t + '%'; }, labelFmt: function (v) { return v + '%'; }, caveatAware: false });
+  renderBarChart('chart-cost', 'cost', { yMax: 2.5, ticks: [0, 0.5, 1, 1.5, 2, 2.5], tickFmt: function (t) { return '$' + t.toFixed(2); }, labelFmt: function (v) { return '$' + v.toFixed(2); }, caveatAware: true });
+  renderBarChart('chart-tokens', 'tokens', { yMax: 5, ticks: [0, 1, 2, 3, 4, 5], tickFmt: function (t) { return t + 'M'; }, labelFmt: function (v) { return v.toFixed(2) + 'M'; }, caveatAware: true });
+
+  // Tooltips
+  var tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('.bar').forEach(function (rect) {
+    rect.addEventListener('mousemove', function (e) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 12) + 'px';
+      tooltip.style.top = (e.pageY - 30) + 'px';
+      tooltip.textContent = rect.dataset.series + ' — ' + rect.dataset.cat + ': ' + rect.dataset.value;
+    });
+    rect.addEventListener('mouseleave', function () { tooltip.style.display = 'none'; });
+  });
+
+  // Results table
+  var tbody = document.getElementById('results-table');
+  var rowsHtml = '';
+  [DATA.hades, DATA.recipe].forEach(function (s) {
+    DATA.categories.forEach(function (cat, ci) {
+      rowsHtml += '<tr>' +
+        '<td class="app-cell"><span class="dot" style="background:var(--' + s.key + ')"></span>' + s.name + '</td>' +
+        '<td>' + cat + '</td>' +
+        '<td>' + s.n[ci] + '</td>' +
+        '<td>$' + s.cost[ci].toFixed(2) + (s.caveat[ci] ? ' *' : '') + '</td>' +
+        '<td>' + s.tokens[ci].toFixed(2) + 'M' + (s.caveat[ci] ? ' *' : '') + '</td>' +
+        '<td>' + s.acc[ci] + '%</td>' +
+        '<td>' + s.noise[ci] + '%</td>' +
+        '<td>' + s.exact[ci] + '</td>' +
+        '<td>' + s.mcp[ci] + '</td>' +
+        '</tr>';
+    });
+  });
+  tbody.innerHTML = rowsHtml;
+</script>
+</body>
+</html>

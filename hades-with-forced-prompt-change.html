@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>with-forced prompt change: before vs after</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:            #f9f9f7;
+    --surface-1:       #fcfcfb;
+    --card-bg:         #ffffff;
+    --text-primary:    #0b0b0b;
+    --text-secondary:  #52514e;
+    --text-muted:      #898781;
+    --gridline:        #e1e0d9;
+    --baseline:        #c3c2b7;
+    --border:          rgba(11,11,11,0.10);
+    --accent:          #2a78d6;
+    --accent-wash:     rgba(42,120,214,0.08);
+    --good:            #0ca30c;
+    --good-wash:       rgba(12,163,12,0.10);
+    --warning:         #b8860b;
+    --warning-wash:    rgba(250,178,25,0.14);
+    --critical:        #d03b3b;
+    --critical-wash:   rgba(208,59,59,0.09);
+    --tldr-bg:         #fbeeee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --card-bg:        #242422;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --accent:         #3987e5;
+      --accent-wash:    rgba(57,135,229,0.14);
+      --good:           #0ca30c;
+      --good-wash:      rgba(12,163,12,0.16);
+      --warning:        #fab219;
+      --warning-wash:   rgba(250,178,25,0.14);
+      --critical:       #e66767;
+      --critical-wash:  rgba(230,103,103,0.16);
+      --tldr-bg:        #2a1a1a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0 20px 64px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  header.hero { padding: 48px 0 28px; border-bottom: 1px solid var(--border); }
+  .kicker { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+  h1 { font-size: 30px; line-height: 1.22; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--text-secondary); max-width: 680px; line-height: 1.5; margin: 0; }
+  .meta-row { margin-top: 18px; font-size: 13px; color: var(--text-muted); }
+
+  section { padding: 40px 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  h2 { font-size: 21px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h3 { font-size: 15px; margin: 0 0 4px; }
+  .section-lede { font-size: 14px; color: var(--text-secondary); margin: 0 0 20px; max-width: 680px; line-height: 1.55; }
+  p { line-height: 1.6; color: var(--text-secondary); font-size: 14.5px; }
+  strong { color: var(--text-primary); }
+  code { background: var(--surface-1); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 0.92em; }
+
+  .tldr-banner { background: var(--tldr-bg); border-radius: 12px; padding: 22px 24px; margin-bottom: 20px; font-size: 15.5px; color: var(--text-primary); line-height: 1.55; }
+  .tldr-banner b { color: var(--critical); }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .stat-tile { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+  .stat-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+  .stat-tile.crit .stat-value { color: var(--critical); }
+
+  .caveat-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--warning-wash); color: var(--text-primary);
+    border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
+    margin-top: 16px;
+  }
+
+  .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0 8px; }
+  .diff-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .diff-card .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-bottom: 10px; }
+  .tag-old { background: var(--surface-1); border: 1px solid var(--border); color: var(--text-muted); }
+  .tag-new { background: var(--critical-wash); color: var(--critical); }
+  .diff-card .label { font-size: 11.5px; color: var(--text-muted); margin: 10px 0 2px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .diff-card .ptext { font-size: 13px; color: var(--text-primary); font-style: italic; line-height: 1.5; }
+  .commit-note { font-size: 12.5px; color: var(--text-muted); margin-top: 10px; }
+
+  .legend { display: flex; gap: 22px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-secondary); }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+  .sw-good { background: var(--good); }
+  .sw-warn { background: var(--warning); }
+  .sw-crit { background: var(--critical); }
+  .sw-accent { background: var(--accent); }
+
+  .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px 18px 8px; margin-bottom: 20px; }
+  .chart-card h3 { margin-bottom: 2px; }
+  .chart-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .vline { stroke: var(--text-muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .ytick, .xtick { fill: var(--text-muted); font-size: 10.5px; }
+  .barlabel { fill: var(--text-secondary); font-size: 10.5px; font-weight: 600; }
+  .bar { cursor: pointer; }
+  .dotmark { cursor: pointer; stroke: var(--card-bg); stroke-width: 2; }
+  .vlabel { fill: var(--text-muted); font-size: 10px; }
+
+  #tooltip { position: absolute; display: none; background: var(--text-primary); color: var(--page); font-size: 12px; padding: 6px 9px; border-radius: 6px; pointer-events: none; z-index: 50; white-space: nowrap; }
+
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  .outcome-row { display: flex; flex-direction: column; gap: 14px; }
+  .outcome-item { }
+  .outcome-item .oc-label { font-size: 13.5px; color: var(--text-primary); font-weight: 600; margin-bottom: 6px; display:flex; justify-content: space-between; }
+  .oc-bar { height: 20px; border-radius: 6px; overflow: hidden; display: flex; background: var(--surface-1); border: 1px solid var(--border); }
+  .oc-seg-good { background: var(--good); }
+  .oc-seg-warn { background: var(--warning); }
+  .oc-seg-crit { background: var(--critical); }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 12.8px; }
+  th, td { text-align: left; padding: 9px 13px; white-space: nowrap; }
+  thead th { background: var(--surface-1); color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--border); }
+  tbody td { border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  tbody tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge-good { background: var(--good-wash); color: var(--good); }
+  .badge-warn { background: var(--warning-wash); color: var(--warning); }
+  .badge-crit { background: var(--critical-wash); color: var(--critical); }
+  .table-foot { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.6; }
+
+  .finding { display: grid; grid-template-columns: 34px 1fr; gap: 14px; margin-bottom: 22px; }
+  .finding .num { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-wash); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none; }
+  .finding h3 { margin-bottom: 5px; }
+  .finding p { margin: 0; }
+
+  .caveat-list { display: flex; flex-direction: column; gap: 12px; }
+  .caveat-item { background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+  .caveat-item b { color: var(--text-primary); }
+
+  .reco-box { background: var(--good-wash); border-radius: 10px; padding: 18px 20px; font-size: 14px; color: var(--text-primary); line-height: 1.6; }
+  .reco-box b { color: var(--good); }
+
+  footer { padding: 30px 0 10px; font-size: 12.5px; color: var(--text-muted); }
+
+  @media (max-width: 720px) {
+    .stat-row, .diff-grid, .chart-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">CAST Imaging MCP Benchmark · Hades · Internal follow-up</div>
+    <h1>The stricter "force MCP" prompt didn't lower accuracy — it added a new way to fail entirely</h1>
+    <p class="subtitle"><code>calls-to-immdates</code>, <code>with-forced</code> condition only. On 2026-09-01 the prompt that forces MCP use was rewritten to forbid falling back to reading source code. Median accuracy looks unchanged. It isn't.</p>
+    <div class="meta-row">Hades · COBOL mainframe · results.jsonl, cleaned 2026-09-03 (deduped + junk-stripped) · generated 2026-09-03</div>
+  </header>
+
+  <section id="tldr">
+    <div class="tldr-banner">
+      Since the change, <b>mean</b> recall on <code>with-forced</code> runs has fallen from 98.8% to <b>54.6%</b> — but <b>median</b> recall barely moved (98.8% → 99.2%), because <b>41.7% of runs (10 of 24) now return a hard empty answer</b>, and median is blind to a minority failure mode. <code>score-results.py</code>'s own summary table would tell you nothing changed. The runs that do connect to MCP are just as accurate as before.
+    </div>
+    <div class="stat-row">
+      <div class="stat-tile crit">
+        <div class="stat-label">Zero-recall (empty answer) rate, after</div>
+        <div class="stat-value">41.7%</div>
+        <div class="stat-sub">10 of 24 runs since the change — 0 before, 0 in the unaffected "with" condition</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Mean recall, before → after</div>
+        <div class="stat-value">98.8% → 54.6%</div>
+        <div class="stat-sub">the number score-results.py doesn't print</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-label">Median recall, before → after</div>
+        <div class="stat-value">98.8% → 99.2%</div>
+        <div class="stat-sub">looks fine — this is the trap</div>
+      </div>
+    </div>
+    <span class="caveat-pill">⚠ Direct before/after n is 2 vs 24 — see "Read before trusting this" below for the stronger same-window comparison this report actually leans on</span>
+  </section>
+
+  <section id="whatchanged">
+    <h2>What actually changed</h2>
+    <p class="section-lede">Commit <code>b27e27a</code>, "add a prefix and a suffix to force only the use of MCP server" — Sep 1, 2026, 16:31 (America/New_York), recorded in git under JB Despujol's account. It only touches the <code>with-forced</code> condition; <code>without</code> and <code>with</code> are untouched and serve as a control below.</p>
+
+    <div class="diff-grid">
+      <div class="diff-card">
+        <span class="tag tag-old">Before</span>
+        <div class="label">Suffix (appended after the question)</div>
+        <div class="ptext">"You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Use them to answer this question rather than relying solely on reading the source code directly."</div>
+      </div>
+      <div class="diff-card">
+        <span class="tag tag-new">After</span>
+        <div class="label">Prefix (new)</div>
+        <div class="ptext">"Using only CAST Imaging MCP tools"</div>
+        <div class="label">Suffix (rewritten)</div>
+        <div class="ptext">"You have access to CAST Imaging MCP tools for structural and transaction analysis of this codebase. Rely solely on the CAST Imaging MCP server to answer this question — do not read the source code directly."</div>
+      </div>
+    </div>
+    <div class="commit-note">The change is a wording shift from "prefer MCP" to "MCP only, no fallback." Nothing else about the harness, the question, or the ground truth changed at the same time.</div>
+  </section>
+
+  <section id="evidence">
+    <h2>The evidence</h2>
+    <p class="section-lede">Every <code>with-forced</code> run on this question, in order. Color is the outcome: green found essentially the right answer, amber found something but badly incomplete, red found nothing at all.</p>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch sw-good"></span>Correct / near-correct (recall ≥ 90%)</div>
+      <div class="legend-item"><span class="swatch sw-warn"></span>Partial (0% &lt; recall &lt; 90%)</div>
+      <div class="legend-item"><span class="swatch sw-crit"></span>Zero — empty answer</div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Recall over time</h3>
+      <div class="chart-sub">Dashed line = the prompt change (Sep 1, 16:31). Every run before it landed near 100%; after it, outcomes split in two.</div>
+      <div id="chart-timeline"></div>
+    </div>
+
+    <p class="section-lede" style="margin-top:28px;"><strong>Why this isn't just "small before-sample noise":</strong> the fairer comparison isn't before-vs-after — it's <code>with-forced</code> vs the untouched <code>with</code> condition, in the exact same post-change time window, where both faced the same real-world MCP-connectivity conditions:</p>
+
+    <div class="chart-card">
+      <h3>Outcome breakdown, same time window (after Sep 1, 16:31)</h3>
+      <div class="chart-sub">Both conditions had the CAST Imaging MCP server available at roughly the same rate — only the instruction differs</div>
+      <div class="outcome-row">
+        <div class="outcome-item">
+          <div class="oc-label"><span>with-forced (n=24) — must use MCP, no fallback allowed</span><span>10 zero / 24</span></div>
+          <div class="oc-bar">
+            <div class="oc-seg-good" style="flex:13"></div>
+            <div class="oc-seg-warn" style="flex:1"></div>
+            <div class="oc-seg-crit" style="flex:10"></div>
+          </div>
+        </div>
+        <div class="outcome-item">
+          <div class="oc-label"><span>with (n=27) — MCP optional, free to fall back to reading code</span><span>0 zero / 27</span></div>
+          <div class="oc-bar">
+            <div class="oc-seg-good" style="flex:27"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>MCP actually reached in the session</h3>
+      <div class="chart-sub"><code>used_mcp_tool</code> rate, before and after the change — both conditions see the CAST Imaging server go missing at a similar rate after the change; only <code>with</code> can route around it</div>
+      <div id="chart-mcpused"></div>
+      <div class="foot-asterisk">* before-change bars are n=2 (with-forced) and n=3 (with) — too small to read as a stable rate, shown for completeness rather than as evidence on their own. Both happen to be 100%, consistent with the "before" period having no recorded refusals either way, but not proof the flake was rarer back then.</div>
+    </div>
+  </section>
+
+  <section id="cost">
+    <h2>What a failed run costs</h2>
+    <p class="section-lede">The zero-recall runs aren't just wrong — they're a different shape of run entirely. The model checks for MCP tools, doesn't find them, and stops in a handful of turns instead of doing the analysis.</p>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Median cost</h3>
+        <div class="chart-sub">with-forced, after the change</div>
+        <div id="chart-cost"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Median tokens</h3>
+        <div class="chart-sub">with-forced, after the change</div>
+        <div id="chart-tokens"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Root cause</h2>
+    <div class="finding">
+      <div class="num">1</div>
+      <div>
+        <h3>The MCP server going missing mid-session isn't new</h3>
+        <p>In the untouched <code>with</code> condition, the CAST Imaging tool is absent or unused in <strong>14 of 30 runs (47%)</strong> across the whole dataset — a rate similar to what <code>with-forced</code> sees after the change (37.5% not used). This looks like a pre-existing MCP-connectivity flake (a session occasionally starting without the tool registered), not something the prompt rewrite introduced.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="num">2</div>
+      <div>
+        <h3>The rewrite removed the only safety net for that flake</h3>
+        <p>Under the old wording, a session that started without MCP could still read the COBOL source directly and produce a real (if less "MCP-verified") answer — that's exactly what happens in every one of those 14 <code>with</code> runs, landing at 232–245 out of 244 expected callers. Under the new wording, the same starting condition instead produces a flat refusal: 9 of 10 zero-recall rows explicitly cite "no CAST Imaging MCP tools available in this session" as the reason for not answering at all.</p>
+      </div>
+    </div>
+    <div class="finding">
+      <div class="num">3</div>
+      <div>
+        <h3>When MCP does connect, the new wording is not the problem</h3>
+        <p>13 of the 14 non-empty <code>with-forced</code> runs after the change land at 99–100% recall — indistinguishable from before the change. The rewrite doesn't make the model worse at the task; it makes an already-existing infrastructure hiccup unrecoverable instead of invisible.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="table">
+    <h2>Every with-forced run, in full</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Timestamp</th><th>Period</th><th>MCP used</th><th>Recall</th><th>Precision</th><th>Cost</th><th>Tokens</th><th>Outcome</th></tr>
+        </thead>
+        <tbody id="results-table"></tbody>
+      </table>
+    </div>
+    <div class="table-foot">Recall/precision computed directly against the 244-file ground truth (basename-matched), not taken from <code>score-results.py</code>'s median-only console summary. One row (Sep 2, 23:06) reports count 798 with 99.2% recall / 98.8% precision — the extra entries collapse to one malformed list item, not hundreds of real false positives. One row (Sep 3, 05:09) reports the right count (244) but only 18.4% real recall — a "confidently wrong" case, different from the zero-recall failures, flagged but not the focus of this report.</div>
+  </section>
+
+  <section id="caveats">
+    <h2>Read before trusting this</h2>
+    <div class="caveat-list">
+      <div class="caveat-item"><b>Only 2 with-forced runs exist from before the change — and there's a structural reason.</b> Git history shows <code>calls-to-immdates</code> was only added to the shared question file at 15:08 on Sep 1 (commit <code>73af55c</code>); the prompt was hardened just <b>83 minutes later</b> at 16:31 (<code>b27e27a</code>). There was barely a window for a "before" sample to exist at all — this isn't data lost to the cleanup (confirmed against the pre-dedup backup too, still 2). The one Aug 27 row predates even that commit and is most likely a local exploratory run folded into the Sep 1 "new results" commit before the question was formalized. A literal before/after comparison on <code>with-forced</code> alone is necessarily thin. The same-window <code>with-forced</code> vs <code>with</code> contrast above is doing the real evidentiary work here — same time period, same real-world MCP reliability, only the wording differs, and it's a much bigger sample (24 vs 27).</div>
+      <div class="caveat-item"><b>This is one question, one condition.</b> Whether this same "instruction removes the fallback" pattern shows up on other Hades or Recipe questions, or in the <code>with</code> condition if it were ever similarly hardened, hasn't been checked.</div>
+      <div class="caveat-item"><b>results.jsonl had a data-hygiene bug, now fixed.</b> While building this report, 35 exact-duplicate rows and 22 more stale junk rows (session-limit hits that predate the strip fix) were found and removed from <code>results.jsonl</code>, all within hades/calls-to-immdates. This report and the regenerated <code>scores-hades.jsonl</code> use the cleaned data (committed <code>118e6d2</code>); anything computed from the file before that commit — including n-counts in the earlier Hades/Recipe comparison report — was inflated and should be treated as superseded.</div>
+      <div class="caveat-item"><b>Two secondary anomalies, not this report's focus.</b> One run reports count 798 (a malformed single list entry, not real over-counting — recall/precision are actually fine). Another reports the correct count of 244 but only 18.4% true recall — a confidently-wrong case worth its own look separately from the zero-recall pattern documented here.</div>
+    </div>
+  </section>
+
+  <section id="reco">
+    <h2>What to do about it</h2>
+    <div class="reco-box">
+      Two independent things surfaced here, and they call for different fixes. <b>The MCP-connectivity flake</b> (~40–50% of sessions start without the tool registered) is the deeper issue and is worth its own investigation — it's happening regardless of prompt wording. <b>The prompt wording</b> is a smaller, cheaper fix: either soften it back to "prefer MCP, fall back to source if it's unavailable" (loses some purity in what <code>with-forced</code> measures, but stops burning ~40% of runs on empty answers), or keep the hard requirement but treat a "no MCP tools available" refusal as a distinct, excluded diagnostic outcome rather than folding it into the same accuracy number as a real attempt.
+    </div>
+  </section>
+
+  <footer>
+    CAST Imaging MCP token-consumption benchmark · Hades · <code>calls-to-immdates</code> · with-forced prompt change (commit <code>b27e27a</code>) · generated 2026-09-03
+  </footer>
+
+</div>
+
+<script>
+  var REF_HOURS_LABEL_BASE = 'Aug 27 2026 00:00 -04:00';
+  var BOUNDARY_H = 136.52;
+
+  // [hours_since_ref, recall_pct, mcp_used]
+  var TIMELINE = [
+    [14.36, 98.4, true],
+    [136.27, 99.2, true],
+    [136.55, 99.2, true],
+    [143.22, 99.2, true],
+    [143.35, 100.0, true],
+    [148.33, 99.2, true],
+    [148.57, 100.0, true],
+    [154.12, 99.2, true],
+    [154.27, 99.2, true],
+    [154.29, 99.2, true],
+    [154.47, 0.0, true],
+    [155.16, 0.0, false],
+    [155.27, 0.0, false],
+    [158.95, 0.0, false],
+    [158.98, 0.0, false],
+    [159.55, 99.2, true],
+    [160.05, 99.2, true],
+    [160.74, 0.0, false],
+    [164.15, 0.0, false],
+    [164.16, 0.0, false],
+    [166.76, 100.0, true],
+    [167.11, 99.2, true],
+    [169.15, 0.0, false],
+    [169.16, 0.0, false],
+    [173.15, 18.4, true],
+    [173.57, 99.2, true]
+  ];
+
+  var TABLE_ROWS = [
+    ['2026-08-27 14:21', 'before', true, 98.4, 99.6, 2.1600, 3.6108, 'good'],
+    ['2026-09-01 16:16', 'before', true, 99.2, 99.2, 3.1056, 5.5257, 'good'],
+    ['2026-09-01 16:33', 'after', true, 99.2, 99.2, 3.3632, 5.6727, 'good'],
+    ['2026-09-01 23:13', 'after', true, 99.2, 99.2, 2.2689, 1.9356, 'good'],
+    ['2026-09-01 23:20', 'after', true, 100.0, 100.0, 2.7875, 4.4743, 'good'],
+    ['2026-09-02 04:20', 'after', true, 99.2, 99.2, 3.6649, 6.4374, 'good'],
+    ['2026-09-02 04:34', 'after', true, 100.0, 100.0, 5.5803, 11.1847, 'good'],
+    ['2026-09-02 10:07', 'after', true, 99.2, 99.2, 3.2264, 5.3435, 'good'],
+    ['2026-09-02 10:16', 'after', true, 99.2, 99.2, 2.3051, 4.4597, 'good'],
+    ['2026-09-02 10:17', 'after', true, 99.2, 99.2, 3.9019, 6.4212, 'good'],
+    ['2026-09-02 10:28', 'after', true, 0.0, 0.0, 2.8083, 7.6768, 'crit'],
+    ['2026-09-02 11:09', 'after', false, 0.0, 0.0, 0.3133, 0.1656, 'crit'],
+    ['2026-09-02 11:16', 'after', false, 0.0, 0.0, 0.0551, 0.1053, 'crit'],
+    ['2026-09-02 14:57', 'after', false, 0.0, 0.0, 0.0722, 0.1053, 'crit'],
+    ['2026-09-02 14:58', 'after', false, 0.0, 0.0, 0.3248, 0.0561, 'crit'],
+    ['2026-09-02 15:32', 'after', true, 99.2, 99.2, 2.9823, 8.2616, 'good'],
+    ['2026-09-02 16:03', 'after', true, 99.2, 99.2, 1.9208, 4.8695, 'good'],
+    ['2026-09-02 16:44', 'after', false, 0.0, 0.0, 0.0679, 0.1049, 'crit'],
+    ['2026-09-02 20:08', 'after', false, 0.0, 0.0, 0.3196, 0.1152, 'crit'],
+    ['2026-09-02 20:09', 'after', false, 0.0, 0.0, 0.0741, 0.1070, 'crit'],
+    ['2026-09-02 22:45', 'after', true, 100.0, 100.0, 2.9167, 7.5344, 'good'],
+    ['2026-09-02 23:06', 'after', true, 99.2, 98.8, 2.0290, 3.9807, 'good'],
+    ['2026-09-03 01:08', 'after', false, 0.0, 0.0, 0.0750, 0.1055, 'crit'],
+    ['2026-09-03 01:09', 'after', false, 0.0, 0.0, 0.0567, 0.1054, 'crit'],
+    ['2026-09-03 05:09', 'after', true, 18.4, 97.8, 3.1227, 8.0438, 'warn'],
+    ['2026-09-03 05:34', 'after', true, 99.2, 99.2, 2.0918, 4.8527, 'good']
+  ];
+
+  function statusColor(recall) {
+    if (recall === 0) return 'var(--critical)';
+    if (recall < 90) return 'var(--warning)';
+    return 'var(--good)';
+  }
+
+  function renderTimeline(containerId) {
+    var container = document.getElementById(containerId);
+    var W = 900, H = 280;
+    var M = { top: 16, right: 16, bottom: 34, left: 44 };
+    var plotW = W - M.left - M.right, plotH = H - M.top - M.bottom;
+    var xMin = 0, xMax = 180;
+    var xScale = function (h) { return M.left + (h - xMin) / (xMax - xMin) * plotW; };
+    var yScale = function (v) { return M.top + plotH - (v / 100) * plotH; };
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">';
+    [0, 25, 50, 75, 100].forEach(function (t) {
+      var y = yScale(t);
+      svg += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" class="gridline"/>';
+      svg += '<text x="' + (M.left - 8) + '" y="' + (y + 3.5) + '" text-anchor="end" class="ytick">' + t + '%</text>';
+    });
+    var xticks = [{ h: 0, l: 'Aug 27' }, { h: 120, l: 'Sep 1' }, { h: 144, l: 'Sep 2' }, { h: 168, l: 'Sep 3' }];
+    xticks.forEach(function (tk) {
+      var x = xScale(tk.h);
+      svg += '<text x="' + x + '" y="' + (H - M.bottom + 18) + '" text-anchor="middle" class="xtick">' + tk.l + '</text>';
+    });
+    // boundary line
+    var bx = xScale(BOUNDARY_H);
+    svg += '<line x1="' + bx + '" y1="' + M.top + '" x2="' + bx + '" y2="' + (M.top + plotH) + '" class="vline"/>';
+    svg += '<text x="' + (bx + 6) + '" y="' + (M.top + 12) + '" class="vlabel">prompt changed</text>';
+
+    TIMELINE.forEach(function (d) {
+      var x = xScale(d[0]), y = yScale(d[1]);
+      svg += '<circle cx="' + x + '" cy="' + y + '" r="5" fill="' + statusColor(d[1]) + '" class="dotmark" data-info="' + d[1].toFixed(1) + '% recall, MCP used: ' + (d[2] ? 'yes' : 'no') + '"></circle>';
+    });
+
+    svg += '</svg>';
+    container.innerHTML = svg;
+  }
+
+  function renderBarChart(containerId, categories, series, opts) {
+    var container = document.getElementById(containerId);
+    var W = 500, H = 250;
+    var M = { top: 16, right: 10, bottom: 40, left: 44 };
+    var plotW = W - M.left - M.right, plotH = H - M.top - M.bottom;
+    var catW = plotW / categories.length;
+    var barW = Math.min(60, catW * 0.55);
+    var yMax = opts.yMax, ticks = opts.ticks, tickFmt = opts.tickFmt, labelFmt = opts.labelFmt;
+    var yScale = function (v) { return M.top + plotH - (v / yMax) * plotH; };
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">';
+    ticks.forEach(function (t) {
+      var y = yScale(t);
+      svg += '<line x1="' + M.left + '" y1="' + y + '" x2="' + (W - M.right) + '" y2="' + y + '" class="gridline"/>';
+      svg += '<text x="' + (M.left - 7) + '" y="' + (y + 3.5) + '" text-anchor="end" class="ytick">' + tickFmt(t) + '</text>';
+    });
+    svg += '<line x1="' + M.left + '" y1="' + yScale(0) + '" x2="' + (W - M.right) + '" y2="' + yScale(0) + '" class="baseline"/>';
+
+    categories.forEach(function (cat, ci) {
+      var v = series.values[ci];
+      var x = M.left + ci * catW + (catW - barW) / 2;
+      var y = yScale(v);
+      var h = yScale(0) - y;
+      var color = series.colors[ci];
+      var note = series.notes ? series.notes[ci] : '';
+      svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(h, 0.5) + '" rx="4" ry="4" fill="' + color + '" class="bar" data-info="' + cat.replace(/\n/g, ' ') + ': ' + labelFmt(v) + (note ? ' (' + note + ')' : '') + '"></rect>';
+      svg += '<text x="' + (x + barW / 2) + '" y="' + (y - 6) + '" text-anchor="middle" class="barlabel">' + labelFmt(v) + (note ? '*' : '') + '</text>';
+      var lines = cat.split('\n');
+      lines.forEach(function (line, li) {
+        svg += '<text x="' + (M.left + ci * catW + catW / 2) + '" y="' + (H - M.bottom + 18 + li * 12) + '" text-anchor="middle" class="xtick">' + line + '</text>';
+      });
+    });
+    svg += '</svg>';
+    container.innerHTML = svg;
+  }
+
+  renderTimeline('chart-timeline');
+
+  renderBarChart('chart-mcpused',
+    ['with-forced\n(before)', 'with-forced\n(after)', 'with\n(before)', 'with\n(after)'],
+    { values: [100, 62.5, 100, 48.1], colors: ['var(--accent)', 'var(--accent)', 'var(--accent)', 'var(--accent)'], notes: ['n=2', null, 'n=3', null] },
+    { yMax: 100, ticks: [0, 25, 50, 75, 100], tickFmt: function (t) { return t + '%'; }, labelFmt: function (v) { return v + '%'; } }
+  );
+
+  renderBarChart('chart-cost',
+    ['Zero-recall runs', 'Real attempts'],
+    { values: [0.07, 2.95], colors: ['var(--critical)', 'var(--good)'] },
+    { yMax: 3.5, ticks: [0, 1, 2, 3], tickFmt: function (t) { return '$' + t; }, labelFmt: function (v) { return '$' + v.toFixed(2); } }
+  );
+
+  renderBarChart('chart-tokens',
+    ['Zero-recall runs', 'Real attempts'],
+    { values: [0.105, 5.51], colors: ['var(--critical)', 'var(--good)'] },
+    { yMax: 6, ticks: [0, 2, 4, 6], tickFmt: function (t) { return t + 'M'; }, labelFmt: function (v) { return v.toFixed(2) + 'M'; } }
+  );
+
+  // tooltips (shared for dots + bars)
+  var tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('.dotmark, .bar').forEach(function (el) {
+    el.addEventListener('mousemove', function (e) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.pageX + 12) + 'px';
+      tooltip.style.top = (e.pageY - 30) + 'px';
+      tooltip.textContent = el.dataset.info;
+    });
+    el.addEventListener('mouseleave', function () { tooltip.style.display = 'none'; });
+  });
+
+  // table
+  var tbody = document.getElementById('results-table');
+  var badgeLabel = { good: 'Correct', warn: 'Partial', crit: 'Zero / refused' };
+  var html = '';
+  TABLE_ROWS.forEach(function (r) {
+    html += '<tr>' +
+      '<td>' + r[0] + '</td>' +
+      '<td>' + r[1] + '</td>' +
+      '<td>' + (r[2] ? 'yes' : 'no') + '</td>' +
+      '<td>' + r[3].toFixed(1) + '%</td>' +
+      '<td>' + r[4].toFixed(1) + '%</td>' +
+      '<td>$' + r[5].toFixed(2) + '</td>' +
+      '<td>' + r[6].toFixed(2) + 'M</td>' +
+      '<td><span class="badge badge-' + r[7] + '">' + badgeLabel[r[7]] + '</span></td>' +
+      '</tr>';
+  });
+  tbody.innerHTML = html;
+</script>
+</body>
+</html>
