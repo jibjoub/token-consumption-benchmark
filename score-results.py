@@ -42,6 +42,19 @@ source (run-benchmark.ps1's header used to recommend this as the *only* safe
 option, back before this script grouped by model) -- either way scores.jsonl
 ends up carrying the model that produced each row.
 
+Guide-context handling: results.jsonl rows can also carry used_mcp_context
+(true/false) and mcp_context_file (a path), logged by run-benchmark.ps1 when
+a markdown guide describing how to use the CAST Imaging MCP tools is injected
+into the prompt on "with"/"with-forced" runs. Both fields used to be silently
+dropped here -- present in results.jsonl, absent from scores.jsonl -- so a
+"with" bucket could quietly blend guide-assisted and bare-tool-description
+runs into one median with no way to tell them apart after the fact. Fixed
+now: both fields are copied through raw (see score_row), and the console
+summary groups by guide usage the same way it already groups by model, with
+three states, not two -- True ("guide"), False ("no-guide"), and missing/None
+("n/a", meaning the row predates this field entirely, so guide usage is
+genuinely unknown, not confirmed absent).
+
 Usage:
     python score-results.py results.jsonl [bench-questions.json] [--out scores.jsonl]
 """
@@ -55,7 +68,7 @@ from collections import defaultdict
 # Preference order for which array-valued field to compare, when a question's
 # "expected" has more than one array field (e.g. table-count also has an
 # integer "count" -- not compared as a set, handled separately below).
-FIELD_PRIORITY = ["tables", "pages", "files", "items"]
+FIELD_PRIORITY = ["tables", "pages", "files", "items", "exercises"]
 
 
 def _basename(x):
@@ -116,6 +129,23 @@ def score_row(row, question):
     if not expected or not found:
         return None
 
+    # "Coverage anchor" test-generation questions (e.g. testgen-*) ask for a
+    # list of {name, exercises} test objects instead of a flat array, so the
+    # model has to write an actual named test per table rather than just
+    # dumping a table list. "name" is free text and is deliberately never
+    # scored here -- only "exercises" (one table name per test) needs to
+    # feed into the same set-arithmetic scoring every other question already
+    # uses. This flattens tests[].exercises into a synthetic top-level
+    # "exercises" list so pick_compare_field() below finds it exactly like
+    # any other array-valued field. No-op for every existing question, since
+    # they don't have a "tests" key at all.
+    if isinstance(found.get("tests"), list) and "exercises" not in found:
+        found = dict(found)
+        found["exercises"] = [
+            t.get("exercises") for t in found["tests"]
+            if isinstance(t, dict) and t.get("exercises") is not None
+        ]
+
     field = pick_compare_field(expected, found)
 
     out = {
@@ -138,6 +168,22 @@ def score_row(row, question):
         "run_index": row.get("run_index"),
         "used_mcp_tool": row.get("used_mcp_tool"),
         "used_json_schema": row.get("used_json_schema"),
+        # Passed through RAW, not coerced -- same reasoning as used_json_schema
+        # above: True/False/missing are three genuinely different states here,
+        # not two. True/False were both logged deliberately by run-benchmark.ps1
+        # once this feature existed (False on "without" rows, since there's no
+        # CAST context to hand it; True/False on "with"/"with-forced" rows
+        # depending on whether -McpContextFile was actually passed). Rows from
+        # before this field existed have neither key at all, which lands here
+        # as None -- a third, "unknown" cohort, not the same thing as a
+        # confirmed False. Silently coercing None to False would make an old
+        # run look like a deliberately-verified no-guide run, which it isn't.
+        # This is exactly the kind of silent blending that let a fraction of
+        # already-reported "with"/"with-forced" rows turn out to have had a
+        # guide file loaded without it ever showing up in scores.jsonl -- see
+        # mcp_context_file below for the other half of that fix.
+        "used_mcp_context": row.get("used_mcp_context"),
+        "mcp_context_file": row.get("mcp_context_file"),
         "cost_usd": row.get("cost_usd"),
         "compare_field": field,
     }
@@ -241,24 +287,35 @@ def main():
     if not scored:
         return
 
-    # Grouped by model (not just app/question/condition): this is the fix for
-    # the exact hazard run-benchmark.ps1's own header warns about -- feeding
-    # this script a results.jsonl that mixes a default-model run with a
-    # -Model haiku run used to silently blend the two into one median. Now
-    # a mixed file just produces twice as many groups, each one still
-    # model-pure, instead of one misleading blended one.
+    # Grouped by model AND guide-context usage (not just app/question/condition):
+    # model-mixing is the hazard run-benchmark.ps1's own header warns about;
+    # guide-mixing is the same hazard for -McpContextFile. A "with"/"with-forced"
+    # bucket that silently blends guide-assisted and bare-tool-description runs
+    # would report one median that isn't really describing either treatment --
+    # this three-state label keeps them apart instead. "n/a" is its own bucket,
+    # not folded into "no": it means the row predates this field entirely, so
+    # whether a guide was used is genuinely unknown, not confirmed absent.
+    def _mcp_context_label(v):
+        if v is True:
+            return "guide"
+        if v is False:
+            return "no-guide"
+        return "n/a"  # field missing entirely -- row predates -McpContextFile
+
     groups = defaultdict(list)
     for s in scored:
-        groups[(s["app"], s["question_id"], s["model"], s["condition"])].append(s)
+        key = (s["app"], s["question_id"], s["model"], s["condition"],
+               _mcp_context_label(s.get("used_mcp_context")))
+        groups[key].append(s)
 
     header = (
-        f"{'app':<14}{'question':<28}{'model':<9}{'condition':<12}{'n':<4}"
+        f"{'app':<14}{'question':<28}{'model':<9}{'condition':<12}{'guide':<9}{'n':<4}"
         f"{'exact':<8}{'median acc':<12}{'median noise':<13}{'mcp used':<10}"
     )
     print()
     print(header)
     print("-" * len(header))
-    for (app, qid, model, cond), rows in sorted(groups.items()):
+    for (app, qid, model, cond, guide), rows in sorted(groups.items()):
         exact = sum(1 for r in rows if r["exact_match"])
         accs = [r["acc"] for r in rows if r["acc"] is not None]
         noises = [r["noise"] for r in rows if r["noise"] is not None]
@@ -266,7 +323,7 @@ def main():
         mcp_str = f"{sum(1 for r in mcp if r['used_mcp_tool'])}/{len(mcp)}" if mcp else "n/a"
         med_acc = f"{statistics.median(accs):.0%}" if accs else "n/a"
         med_noise = f"{statistics.median(noises):.0%}" if noises else "n/a"
-        print(f"{app:<14}{qid:<28}{model:<9}{cond:<12}{len(rows):<4}{exact}/{len(rows):<7}{med_acc:<12}{med_noise:<13}{mcp_str:<10}")
+        print(f"{app:<14}{qid:<28}{model:<9}{cond:<12}{guide:<9}{len(rows):<4}{exact}/{len(rows):<7}{med_acc:<12}{med_noise:<13}{mcp_str:<10}")
 
 
 if __name__ == "__main__":

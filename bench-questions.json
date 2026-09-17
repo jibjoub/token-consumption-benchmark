@@ -222,5 +222,49 @@
       "sm-shop/src/com/salesmanager/catalog/common/AjaxCatalogUtil.java -- setPrice(ProductAttribute[] attributes, ...), addProductWithAttributes(...), and addProductToCart(...) all take com.salesmanager.catalog.product.ProductAttribute[] as a parameter type -- note this is the SAME FILE (and for addProductToCart, the SAME METHOD) as one of the expected hits above, but the parameter type is the unrelated shop DTO class, not the core entity",
       "sm-shop/src/com/salesmanager/catalog/cart/MiniShoppingCartAction.java -- private ProductAttribute[] attributes field plus getAttributes()/setAttributes(), using com.salesmanager.catalog.product.ProductAttribute (the shop DTO), not the core entity"
     ]
+  },
+  {
+    "id": "testgen-editrecipe-coverage",
+    "prompt": "I want to modify the end-to-end flow related to this editrecipe.aspx page. Before making the change, write the test cases you would want in place to catch a regression. For each test case, give it a short, descriptive name (what user action it exercises and what it checks), and separately state the single database table that test case is primarily meant to protect against a regression, by exact name. One table per test — if a change could affect more than one table, write a separate test for each.",
+    "json_schema": {
+      "type": "object",
+      "properties": {
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Short, human-readable description of the scenario this test case checks."
+              },
+              "exercises": {
+                "type": "string",
+                "description": "The single database table this test case is primarily meant to protect against a regression, by exact table name."
+              }
+            },
+            "required": [
+              "name",
+              "exercises"
+            ]
+          },
+          "description": "One entry per proposed test case."
+        }
+      },
+      "required": [
+        "tests"
+      ]
+    },
+    "expected": {
+      "exercises": [
+        "Cooking_Article",
+        "Cooking_Article_Category",
+        "RECIPE_CAT",
+        "Recipes",
+        "usersmain",
+        "RecipeUpdateLog"
+      ]
+    },
+    "notes": "New benchmark category, not a variant of table-count: this asks for test-generation coverage rather than impact analysis, using the 'coverage anchors' scoring pattern discussed 2026-09 as a way to test whether more accurate impact analysis (table-count's headline finding) translates into more accurate AI-generated test coverage. Deliberately reuses table-count's exact ground truth (same 6 tables, same editrecipe.aspx scenario, see that entry's notes for how 'expected' was derived and cross-verified) so this question's results can be directly compared against table-count's for the same run: a model that already knows CAST-derived impact analysis helps it enumerate tables should, in theory, also write more complete test coverage once asked to turn that into tests. How scoring works: 'name' is free text and is NEVER compared against anything -- there is no expected list of test names or sentences, and no attempt at semantic/text matching. Only 'exercises' (one table name per test object) is extracted -- see score-results.py's flattening of tests[].exercises into a synthetic top-level 'exercises' array -- and scored with the exact same set arithmetic (acc/noise/exact_match) as table-count's 'tables' field. A model that writes a test named 'Recipe update persists correctly' with exercises='Recipes' scores identically to one that just listed 'Recipes' in a bare array; 'name' exists purely so a human can spot-check whether the model wrote a genuine, sensible test or just anchor-stuffed a table name into a throwaway one-liner to farm score -- that risk (a model gaming this by writing 6 trivial tests, one per table, with no real test logic) is real and not caught by acc/noise at all, so any run that scores unexpectedly well here should be read by hand before trusting the number. Requires score-results.py's found['tests'] -> found['exercises'] flattening step (added alongside this question) and 'exercises' added to FIELD_PRIORITY; without that patch this question's rows would score as unscored (field=None) exactly like a free-text question. Not yet run through run-benchmark.ps1 -- added to the question set but no results.jsonl rows exist for it yet."
   }
 ]
