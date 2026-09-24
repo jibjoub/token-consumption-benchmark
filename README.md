@@ -76,40 +76,15 @@ python analyze-results.py results.jsonl
 ## Running it
 
 ```powershell
-# First pass: a small app, one question, 5 reps per condition (without, with)
-.\run-benchmark.ps1 `
-    -RepoPath "C:\path\to\recipe-main\recipe-main" `
-    -AppName "recipe" `
-    -Runs 5
 
-# Bigger app later, same shared results file (so analyze-results.py can
-# build one cross-app comparison table)
-.\run-benchmark.ps1 `
-    -RepoPath "C:\path\to\bigger-app" `
-    -AppName "bigger-app" `
-    -McpConfigPath "C:\path\to\bigger-app\cast.json" `
-    -Runs 5
-
-# Add more samples to just one condition
-.\run-benchmark.ps1 -RepoPath ... -AppName recipe -Conditions without -Runs 10
-
-# Single question, all three conditions, a specific model, its own results file
-.\run-benchmark.ps1 -RepoPath ... -AppName recipe `
-    -QuestionIds table-count -Model haiku `
-    -Conditions without,with,with-forced -Runs 10 `
-    -ResultsFile .\results-haiku.jsonl
-
-# Tell Claude which application to search for INSIDE CAST Imaging
-# (this is NOT the same as -AppName -- see "Parameters" below)
-.\run-benchmark.ps1 -RepoPath ... -AppName recipe `
-    -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10
-
-# Also hand Claude a written usage guide for the CAST Imaging tools on
-# every "with"/"with-forced" call, to measure whether it helps
-# (see "CAST Imaging usage guide" below):
-.\run-benchmark.ps1 -RepoPath ... -AppName recipe `
-    -CastImagingAppName "Recipe" -Conditions with,with-forced -Runs 10 `
-    -McpContextFile .\cast-imaging-mcp-guide.md
+pwsh -File .\run-benchmark.ps1 `
+  -RepoPath "C:\path\to\recipe-main\recipe-main" `
+  -AppName recipe `
+  -CastImagingAppName "Recipe JBD" `
+  -QuestionIds pages-directly-related-to-PrivateMessage-table `
+  -Conditions with,without,with-forced `
+  -Model haiku `
+  -Runs 5
 ```
 
 Then, after the run(s):
