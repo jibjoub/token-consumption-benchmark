@@ -81,7 +81,7 @@ Usage
   .\run-benchmark.ps1 `
       -RepoPath "C:\path\to\bigger-app" `
       -AppName "bigger-app" `
-      -McpConfigPath "C:\path\to\bigger-app\cast.json" `
+      -McpConfigPath "C:\path\to\bigger-app\cast.local.json" `
       -Runs 5
 
   # Just the "without CAST" condition (e.g. to add more samples later)
@@ -323,7 +323,7 @@ param(
   [Parameter(Mandatory=$true)][string]$RepoPath,
   [Parameter(Mandatory=$true)][string]$AppName,
   [string]$QuestionsFile = (Join-Path $PSScriptRoot "bench-questions.json"),
-  [string]$McpConfigPath = (Join-Path $RepoPath "cast.json"),
+  [string]$McpConfigPath = (Join-Path $RepoPath "cast.local.json"),
   [string]$ResultsFile   = (Join-Path $PSScriptRoot "results.jsonl"),
   [int]$Runs = 5,
   [string[]]$Conditions = @("without","with"),
@@ -447,7 +447,14 @@ try {
       # actually happened this iteration.
       $useMcpContext = $false
       if ($usesMcp) {
-        if (-not (Test-Path $McpConfigPath)) { throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition)" }
+        if (-not (Test-Path $McpConfigPath)) {
+          $normalizedMcpConfigPath = [System.IO.Path]::GetFullPath($McpConfigPath)
+          $defaultLocalConfigPath = [System.IO.Path]::GetFullPath((Join-Path $RepoPath "cast.local.json"))
+          if ([string]::Equals($normalizedMcpConfigPath, $defaultLocalConfigPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition). Copy cast.json to cast.local.json and put your real x-api-key only in the local file."
+          }
+          throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition)"
+        }
         $allowedTools += ",mcp__CASTImaging__*"
         $mcpArgs = @("--mcp-config", $McpConfigPath)
         if ($McpContextFile) { $useMcpContext = $true }
