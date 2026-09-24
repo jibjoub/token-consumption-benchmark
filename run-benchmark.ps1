@@ -448,8 +448,9 @@ try {
       $useMcpContext = $false
       if ($usesMcp) {
         if (-not (Test-Path $McpConfigPath)) {
+          $normalizedMcpConfigPath = [System.IO.Path]::GetFullPath($McpConfigPath)
           $defaultLocalConfigPath = [System.IO.Path]::GetFullPath((Join-Path $RepoPath "cast.local.json"))
-          if ($McpConfigPath -eq $defaultLocalConfigPath) {
+          if ([string]::Equals($normalizedMcpConfigPath, $defaultLocalConfigPath, [System.StringComparison]::OrdinalIgnoreCase)) {
             throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition). Copy cast.json to cast.local.json and put your real x-api-key only in the local file."
           }
           throw "McpConfigPath not found: $McpConfigPath (needed for the '$condition' condition)"
