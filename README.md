@@ -121,7 +121,6 @@ For free-text questions (no `expected`/`json_schema`), open `results.jsonl`, rea
 - **Prompt cache is shared across runs and is NOT a bug.** It can make a run cheaper (not smarter) if a prior run already cached identical content within the cache TTL. `cache_creation_tokens`/`cache_read_tokens` are logged separately precisely so this shows up as a visible cost confound instead of silently distorting a blended number.
 - **`with-forced` is a strong instruction, not a guarantee.** There's no CLI equivalent of the API's `tool_choice` to force MCP tool use mechanically — always check `used_mcp_tool` on `with-forced` rows too.
 - **Structured output (`--json-schema`) is not free**: it adds roughly one extra turn and a small extra cost, and can suppress prose reasoning. Treat `used_json_schema` as its own cohort — don't average a schema-on row against a schema-off row for the same `question_id`.
-- **Model mixing is safe now**, but keep it deliberate: `results.jsonl` rows carry a `model` field (`"default"` when `-Model` is unset), and both scoring scripts group by it — so a mixed file produces model-pure groups instead of a blended median. Rows predating this field have no `model` key at all and are normalized to `"default"`.
 
 ## Extending to a bigger app (Hades)
 
