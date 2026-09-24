@@ -6,6 +6,10 @@ run-benchmark-loop.ps1
 # Nightly automation logs -- local run history, not shared project data.
 nightly-logs/
 
+# Local CAST Imaging MCP config with real credentials; keep the tracked
+# cast.json file as a safe template and put secrets here instead.
+cast.local.json
+
 # Ayoub's local account-routing wrapper (hardcodes his own CLAUDE_CONFIG_DIR
 # path + account) -- not portable to JB or anyone else cloning this repo.
 run-benchmark-pro.ps1

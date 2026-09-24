@@ -71,7 +71,7 @@ python analyze-results.py results.jsonl
 - **Claude Code CLI** (`claude`) installed and logged in (normal OAuth/subscription login — no API key required; the script does not use `--bare`).
 - **Python 3** (standard library only, no `pip install` needed) for `score-results.py` / `analyze-results.py`.
 - A local checkout of the **target repository** to benchmark.
-- A **CAST Imaging MCP config file** (see [`cast.json`](cast.json)) for `with`/`with-forced` runs, pointing at a running CAST Imaging server with the target app registered.
+- A **local CAST Imaging MCP config file** for `with`/`with-forced` runs, pointing at a running CAST Imaging server with the target app registered. Use the tracked [`cast.json`](cast.json) file only as a template, then copy it to an untracked `cast.local.json` and put the real `x-api-key` there.
 
 ## Running it
 
@@ -103,7 +103,7 @@ For free-text questions (no `expected`/`json_schema`), open `results.jsonl`, rea
 | `-RepoPath` *(required)* | — | Target repo to benchmark against. |
 | `-AppName` *(required)* | — | Label for grouping rows in the results file. Never sent to Claude. |
 | `-QuestionsFile` | `bench-questions.json` | Question set. |
-| `-McpConfigPath` | `<RepoPath>\cast.json` | MCP config for `with`/`with-forced`. |
+| `-McpConfigPath` | `<RepoPath>\cast.local.json` | Local, untracked MCP config for `with`/`with-forced`. Copy [`cast.json`](cast.json) to this path and add the real key there. |
 | `-ResultsFile` | `results.jsonl` | Where to append records. Point different models at different files, or rely on the logged `model` field — both are now safe (see below). |
 | `-Runs` | `5` | Repetitions per (question, condition). |
 | `-Conditions` | `without,with` | Any of `without`, `with`, `with-forced`. |
@@ -194,7 +194,7 @@ To run it manually (data collection is underway; some question/condition combos 
     -RepoPath "C:\Cast\Code-for-demos\hades-main\hades-main\COBOL" `
     -AppName hades `
     -QuestionsFile .\bench-questions-hades.json `
-    -McpConfigPath .\cast.json `
+    -McpConfigPath .\cast.local.json `
     -CastImagingAppName "Hades" `
     -Conditions without,with,with-forced `
     -Runs 5
@@ -331,10 +331,10 @@ CLI's `CLAUDE_CONFIG_DIR` -- this has no effect on either of them.
 | [`results.jsonl`](results.jsonl) | Append-only observation log (default model). |
 | [`results-haiku.jsonl`](results-haiku.jsonl) | Same, for a dedicated Haiku run. |
 | [`scores.jsonl`](scores.jsonl) | Derived, recomputable scoring output. |
-| [`cast.json`](cast.json) | Sample CAST Imaging MCP config (`--mcp-config`) for the target repo. |
+| [`cast.json`](cast.json) | Safe CAST Imaging MCP config template (`--mcp-config`). Copy it to `cast.local.json` and put the real key only in the local copy. |
 | [`cast-imaging-mcp-guide.md`](cast-imaging-mcp-guide.md) | Usage guide for the CAST Imaging MCP tools, optionally injected via `-McpContextFile` — reverse-engineered from real tool calls in `results.jsonl`, not CAST's own API docs. Meant to be corrected/extended, not treated as final. |
 | [`cast_force_test.json`](cast_force_test.json) / [`extract.json`](extract.json) | Ad hoc sample outputs from earlier manual test runs (not consumed by the pipeline). |
 
 ## ⚠️ Security note
 
-[`cast.json`](cast.json) contains a live CAST Imaging API key (`x-api-key`) in plain text. If this repo is or will be pushed anywhere shared, treat that key as exposed: rotate it and/or exclude the file via `.gitignore`, and pass a local, untracked config path via `-McpConfigPath` instead.
+The previously committed `x-api-key` should be treated as exposed. Rotate it, create a local untracked `cast.local.json` from [`cast.json`](cast.json), and keep the real key out of Git going forward.
